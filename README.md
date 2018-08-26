@@ -39,10 +39,29 @@ Calling
 model_sel = ModelSelector()
 model_sel.fit(X_tr, Y_tr, X_te, Y_te)
 ```
-will return the (ranked) accuracy scores of the different models and the computation times required. Can be accessed via the `pandas` dataframe
+will return the several important elements:
+
+#### Summary DataFrame
+(ranked) accuracy scores of the different models and the computation times required. Can be accessed via the `pandas` dataframe
 ```
 model_sel.summary_df
 ```
+
+#### Best Model
+The best model (instance) is also returned, with the best parameters it found in training.
+```
+best_mod = model_sel.models[model_sel.best_model]
+```
+Note that running
+```
+Y_un_pred = best_mod.fit(X,Y).predict(X,Y,X_un)
+```
+or
+```
+best_mod.best_params = None  # this line would reset the params, and fit() would re-optimize for the full set.
+Y_un_pred = best_mod.fit(X,Y).predict(X,Y,X_un)
+```
+will yield different results. In the latter case, the prediction will be done with parameters optimized over all of `X,Y`. In the former case, we would use parameters optimized over `X_tr,Y_tr`. The latter requires recomputation but uses more of the data for tuning.
 
 #### Parameters
 

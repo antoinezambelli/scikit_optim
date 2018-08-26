@@ -25,5 +25,11 @@ Y_tr = Y[0:m]
 # We now have X, Y, X_tr, Y_tr, X_te, Y_te as in the readme. Run ModelSelector() with kNN and LogRegress.
 model_sel = ModelSelector(check=['kNN','LogRegress'])
 model_sel.fit(X_tr, Y_tr, X_te, Y_te)
-print(model_sel.summary_df)
+# print(model_sel.summary_df)  # could manually inspect accuracy+runtimes to pick a preferred model.
+
+# Take the best model as found by ModelSelector(), and execute a fit-predict on the full set.
+best_mod = model_sel.models[model_sel.best_model]  # best model object, contains best params.
+# best_mod.best_params = None  # this line would reset the params, and fit() would re-optimize for the full set.
+Y_un_pred = best_mod.fit(X,Y).predict(X,Y,X_un)
+
 

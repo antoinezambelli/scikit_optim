@@ -3,7 +3,7 @@ Convenience Library for CV grid-search optimization of scikit classifiers.
 
 ## Description
 
-This is a convenience library for use with `scikit` supervised learning algorithms (`knn`,`Logistic Regression`, etc). It provides methods to automatically conduct a cross-validated grid-search of hyperparameter tuning - so you odn't need to code loops every time.
+This is a convenience library for use with `scikit` supervised learning algorithms (`knn`,`Logistic Regression`, etc). It provides methods to automatically conduct a cross-validated grid-search for hyperparameter tuning - so you don't need to code loops every time.
 
 It also includes a `ModelSelector` which will run comparisons of all models - returning runtimes and accuracy scores for different models.
 

@@ -1,7 +1,9 @@
 import numpy as np
 import pandas as pd
+import sys
+sys.path.append('../')
 
-from scikit_optim.scikit_optim import ModelSelector
+from scikit_optim import ModelSelector
 
 train_df = pd.read_csv('cleaned_train.csv',index_col=0)
 test_df = pd.read_csv('cleaned_test.csv',index_col=0)
@@ -21,7 +23,7 @@ X_tr = X[0:m]
 Y_tr = Y[0:m]
 
 # We now have X, Y, X_tr, Y_tr, X_te, Y_te as in the readme. Run ModelSelector() with kNN and LogRegress.
-model_sel = ModelSelector(check=['kNN','LogRegress'],verbose=True)
+model_sel = ModelSelector(check=['kNN','LogRegress'])
 model_sel.fit(X_tr, Y_tr, X_te, Y_te)
 print(model_sel.summary_df)
 

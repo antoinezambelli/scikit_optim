@@ -1,3 +1,11 @@
+"""
+#
+# scikit_optim_kaggle_example.py
+#
+# Copyright (c) 2018 Antoine Emil Zambelli. MIT License.
+#
+"""
+
 import numpy as np
 import pandas as pd
 import sys

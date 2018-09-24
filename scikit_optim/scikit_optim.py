@@ -1,3 +1,11 @@
+"""
+#
+# scikit_optim.py
+#
+# Copyright (c) 2018 Antoine Emil Zambelli. MIT License.
+#
+"""
+
 import numpy as np
 from sklearn.mixture import BayesianGaussianMixture
 from sklearn.mixture import GaussianMixture

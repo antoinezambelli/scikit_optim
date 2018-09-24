@@ -15,10 +15,8 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.svm import SVC
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.naive_bayes import GaussianNB, MultinomialNB
-from sklearn.cluster import KMeans
 from sklearn.model_selection import GridSearchCV, RandomizedSearchCV
 import pandas as pd
-import itertools
 from scipy.stats import randint
 import time
 
@@ -66,10 +64,7 @@ class ModelSelector():
         for model in todo_list:
             t_0 = time.time()
             curr_model = model
-            if model == 'HybridNB':
-                mod = HybridNB()
-                mod_score = round(mod.score(X_in, y_in, X_te_in, y_te_in) * 100,  2)
-            elif model == 'GMM':
+            if model == 'GMM':
                 mod = GMM()
                 mod_score = round(mod.score(X_in, y_in, X_te_in, y_te_in) * 100,  2)
             elif model == 'LogRegress':
@@ -87,9 +82,6 @@ class ModelSelector():
             elif model == 'kNN':
                 mod = kNN()
                 mod_score = round(mod.score(X_in, y_in, X_te_in, y_te_in) * 100,  2)
-            elif model == 'BGMMCV':
-                mod = BGMMCV()
-                mod_score = round(mod.score(X_in, y_in, X_te_in, y_te_in) * 100,  2)
             elif model == 'BGMM':
                 mod = BGMM()
                 mod_score = round(mod.score(X_in, y_in, X_te_in, y_te_in) * 100,  2)
@@ -98,9 +90,6 @@ class ModelSelector():
                 mod_score = round(mod.score(X_in, y_in, X_te_in, y_te_in) * 100,  2)
             elif model == 'MultiNB':
                 mod = MultiNB()
-                mod_score = round(mod.score(X_in, y_in, X_te_in, y_te_in) * 100,  2)
-            elif model == 'Kmeans':
-                mod = Kmeans()
                 mod_score = round(mod.score(X_in, y_in, X_te_in, y_te_in) * 100,  2)
 
             summary_dict[model] = {
@@ -126,7 +115,7 @@ class ModelSelector():
         return self
 
 
-class GaussNB():  # fit time: ~1s/space.
+class GaussNB():
     def __init__(self):
         self.y_pred = None
         self.accuracy_score = None
@@ -162,7 +151,7 @@ class GaussNB():  # fit time: ~1s/space.
         return acc_score
 
 
-class MultiNB():  # fit time: ~1s/space.
+class MultiNB():
     def __init__(self):
         self.y_pred = None
         self.accuracy_score = None
@@ -198,7 +187,7 @@ class MultiNB():  # fit time: ~1s/space.
         return acc_score
 
 
-class kNN():  # fit time: ~1s/space. DOES WHOLE SPACE.
+class kNN():
     def __init__(self, best_params=None):
         self.best_params = best_params
         self.y_pred = None
@@ -247,7 +236,7 @@ class kNN():  # fit time: ~1s/space. DOES WHOLE SPACE.
         return acc_score
 
 
-class SupportVC():  # fit time: ~20s/200iter or ~50s/space. DOES WHOLE SPACE.
+class SupportVC():
     def __init__(self, best_params=None):
         self.best_params = best_params
         self.y_pred = None
@@ -305,7 +294,7 @@ class SupportVC():  # fit time: ~20s/200iter or ~50s/space. DOES WHOLE SPACE.
         return acc_score
 
 
-class RandForest():  # fit time: ~80s/200iter.
+class RandForest():
     def __init__(self, num_iter=200, best_params=None):
         self.best_params = best_params
         self.y_pred = None
@@ -363,7 +352,7 @@ class RandForest():  # fit time: ~80s/200iter.
         return acc_score
 
 
-class DecTree():  # fit time: ~10s/1000iter. DOES WHOLE SPACE.
+class DecTree():
     def __init__(self, num_iter=2500, best_params=None):
         self.best_params = best_params
         self.y_pred = None
@@ -422,7 +411,7 @@ class DecTree():  # fit time: ~10s/1000iter. DOES WHOLE SPACE.
         return acc_score
 
 
-class LogRegress():  # fit time: ~10s. DOES WHOLE SPACE.
+class LogRegress():
     def __init__(self, num_iter=300, best_params=None):
         self.best_params = best_params
         self.y_pred = None
@@ -474,7 +463,7 @@ class LogRegress():  # fit time: ~10s. DOES WHOLE SPACE.
         return acc_score
 
 
-class BGMM():  # fit time: ~180s/space. DOES WHOLE SPACE.
+class BGMM():
     def __init__(self, best_params=None):
         self.best_params = best_params
         self.y_pred = None
@@ -547,7 +536,7 @@ class BGMM():  # fit time: ~180s/space. DOES WHOLE SPACE.
         return acc_score
 
 
-class GMM():  # fit time: ~5s/space. DOES WHOLE SPACE.
+class GMM():
     def __init__(self, best_params=None):
         self.best_params = best_params
         self.y_pred = None

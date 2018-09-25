@@ -1,6 +1,6 @@
 """
 #
-# dataengine setup.py
+# scikit_optim setup.py
 #
 # Copyright(c) 2018, Carium, Inc. All rights reserved.
 #

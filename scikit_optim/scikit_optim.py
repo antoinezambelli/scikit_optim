@@ -23,7 +23,6 @@ import time
 
 done_list = None
 todo_list = None
-avg_runtimes = None
 t_1 = None
 t_0 = None
 curr_model = None
@@ -44,7 +43,6 @@ class ModelSelector():
         global todo_list
         global t_1
         global t_0
-        global avg_runtimes
         global curr_model
 
         # get lists organized and initialize dicts.
@@ -118,6 +116,8 @@ class ModelSelector():
 class GaussNB():
     def __init__(self):
         self.y_pred = None
+        self.y_pred_prob = None
+        self.label_prob = None
         self.accuracy_score = None
         self.best_params = None
 
@@ -137,6 +137,18 @@ class GaussNB():
 
         return y_pred
 
+    def predict_proba(self, X_in, y_in, X_te_in):
+        X_tr = X_in.copy()
+        Y_tr = y_in.copy()
+        X_oos = X_te_in.copy()
+
+        y_pred_prob = GaussianNB().fit(X_tr, Y_tr).predict_proba(X_oos)
+
+        self.y_pred_prob = y_pred_prob
+        self.label_prob = np.max(y_pred_prob, axis=1)
+
+        return y_pred_prob
+
     def score(self, X_in, y_in, X_te_in, y_te_in):
         X = X_in.copy()
         y = y_in.copy()
@@ -154,6 +166,8 @@ class GaussNB():
 class MultiNB():
     def __init__(self):
         self.y_pred = None
+        self.y_pred_prob = None
+        self.label_prob = None
         self.accuracy_score = None
         self.best_params = None
 
@@ -173,6 +187,18 @@ class MultiNB():
 
         return y_pred
 
+    def predict_proba(self, X_in, y_in, X_te_in):
+        X_tr = X_in.copy()
+        Y_tr = y_in.copy()
+        X_oos = X_te_in.copy()
+
+        y_pred_prob = MultinomialNB().fit(X_tr, Y_tr).predict_proba(X_oos)
+
+        self.y_pred_prob = y_pred_prob
+        self.label_prob = np.max(y_pred_prob, axis=1)
+
+        return y_pred_prob
+
     def score(self, X_in, y_in, X_te_in, y_te_in):
         X = X_in.copy()
         y = y_in.copy()
@@ -191,6 +217,8 @@ class kNN():
     def __init__(self, best_params=None):
         self.best_params = best_params
         self.y_pred = None
+        self.y_pred_prob = None
+        self.label_prob = None
         self.accuracy_score = None
 
     def fit(self, X_in, Y_in):
@@ -200,7 +228,7 @@ class kNN():
         if self.best_params:
             pass
         else:
-            parameters = {'n_neighbors': np.arange(1, 27, 2)}
+            parameters = {'n_neighbors': np.arange(1, 27, 2)}  # TODO: fix this to use smarter range. geomspace() from 1 to len(data)/100? Might need to unique(int()) the geomspace output.
             knn = KNeighborsClassifier()
             clf = GridSearchCV(knn, parameters)
             clf.fit(X, Y)
@@ -222,6 +250,20 @@ class kNN():
 
         return y_pred
 
+    def predict_proba(self, X_in, y_in, X_te_in):
+        X_tr = X_in.copy()
+        Y_tr = y_in.copy()
+        X_oos = X_te_in.copy()
+
+        best_params = self.best_params
+
+        y_pred_prob = KNeighborsClassifier(n_neighbors=best_params['n_neighbors']).fit(X_tr, Y_tr).predict_proba(X_oos)
+        self.label_prob = np.max(y_pred_prob, axis=1)
+
+        self.y_pred_prob = y_pred_prob
+
+        return y_pred_prob
+
     def score(self, X_in, y_in, X_te_in, y_te_in):
         X = X_in.copy()
         y = y_in.copy()
@@ -240,6 +282,8 @@ class SupportVC():
     def __init__(self, best_params=None):
         self.best_params = best_params
         self.y_pred = None
+        self.y_pred_prob = None
+        self.label_prob = None
         self.accuracy_score = None
 
     def fit(self, X_in, Y_in):
@@ -280,6 +324,24 @@ class SupportVC():
 
         return y_pred
 
+    def predict_proba(self, X_in, y_in, X_te_in):
+        X_tr = X_in.copy()
+        Y_tr = y_in.copy()
+        X_oos = X_te_in.copy()
+
+        best_params = self.best_params
+
+        y_pred_prob = SVC(
+            kernel=best_params['kernel'],
+            gamma=best_params['gamma'],
+            C=best_params['C']
+        ).fit(X_tr, Y_tr).predict_proba(X_oos)
+
+        self.y_pred_prob = y_pred_prob
+        self.label_prob = np.max(y_pred_prob, axis=1)
+
+        return y_pred_prob
+
     def score(self, X_in, y_in, X_te_in, y_te_in):
         X = X_in.copy()
         y = y_in.copy()
@@ -298,6 +360,8 @@ class RandForest():
     def __init__(self, num_iter=200, best_params=None):
         self.best_params = best_params
         self.y_pred = None
+        self.y_pred_prob = None
+        self.label_prob = None
         self.accuracy_score = None
         self.num_iter = num_iter
 
@@ -309,9 +373,9 @@ class RandForest():
             pass
         else:
             parameters = {
-                'min_samples_split': np.arange(2, 22, 2),
+                'min_samples_split': np.arange(2, 22, 2),  # TODO: fix this to use smarter range.
                 'max_features': randint(1, len(X.columns.values)),
-                'n_estimators': np.arange(10, 110, 10)
+                'n_estimators': np.arange(10, 110, 10)  # TODO: fix this to use smarter range.
             }
             rf = RandomForestClassifier()
             clf = RandomizedSearchCV(rf, parameters, n_iter=self.num_iter)
@@ -338,6 +402,24 @@ class RandForest():
 
         return y_pred
 
+    def predict_proba(self, X_in, y_in, X_te_in):
+        X_tr = X_in.copy()
+        Y_tr = y_in.copy()
+        X_oos = X_te_in.copy()
+
+        best_params = self.best_params
+
+        y_pred_prob = RandomForestClassifier(
+            min_samples_split=best_params['min_samples_split'],
+            max_features=best_params['max_features'],
+            n_estimators=best_params['n_estimators']
+        ).fit(X_tr, Y_tr).predict_proba(X_oos)
+
+        self.y_pred_prob = y_pred_prob
+        self.label_prob = np.max(y_pred_prob, axis=1)
+
+        return y_pred_prob
+
     def score(self, X_in, y_in, X_te_in, y_te_in):
         X = X_in.copy()
         y = y_in.copy()
@@ -356,6 +438,8 @@ class DecTree():
     def __init__(self, num_iter=2500, best_params=None):
         self.best_params = best_params
         self.y_pred = None
+        self.y_pred_prob = None
+        self.label_prob = None
         self.accuracy_score = None
         self.num_iter = num_iter
 
@@ -367,7 +451,7 @@ class DecTree():
             pass
         else:
             if len(range(2, 21))*len(range(1, len(X_in.columns.values))) <= 500:
-                parameters = {'min_samples_split': range(2, 21), 'max_features': range(1, len(X_in.columns.values))}
+                parameters = {'min_samples_split': range(2, 21), 'max_features': range(1, len(X_in.columns.values))}  # TODO: fix this to use smarter range. change if condition as needed.
                 dc = DecisionTreeClassifier()
                 clf = GridSearchCV(dc, parameters)
                 clf.fit(X, Y)
@@ -397,6 +481,23 @@ class DecTree():
 
         return y_pred
 
+    def predict_proba(self, X_in, y_in, X_te_in):
+        X_tr = X_in.copy()
+        Y_tr = y_in.copy()
+        X_oos = X_te_in.copy()
+
+        best_params = self.best_params
+
+        y_pred_prob = DecisionTreeClassifier(
+            min_samples_split=best_params['min_samples_split'],
+            max_features=best_params['max_features']
+        ).fit(X_tr, Y_tr).predict_proba(X_oos)
+
+        self.y_pred_prob = y_pred_prob
+        self.label_prob = np.max(y_pred_prob, axis=1)
+
+        return y_pred_prob
+
     def score(self, X_in, y_in, X_te_in, y_te_in):
         X = X_in.copy()
         y = y_in.copy()
@@ -415,6 +516,8 @@ class LogRegress():
     def __init__(self, num_iter=300, best_params=None):
         self.best_params = best_params
         self.y_pred = None
+        self.y_pred_prob = None
+        self.label_prob = None
         self.accuracy_score = None
         self.num_iter = num_iter
 
@@ -448,6 +551,23 @@ class LogRegress():
         self.y_pred = y_pred
 
         return y_pred
+
+    def predict_proba(self, X_in, y_in, X_te_in):
+        X_tr = X_in.copy()
+        Y_tr = y_in.copy()
+        X_oos = X_te_in.copy()
+
+        best_params = self.best_params
+
+        y_pred_prob = LogisticRegressionCV(
+            Cs=best_params['Cs'],
+            solver=best_params['solver']
+        ).fit(X_tr, Y_tr).predict_proba(X_oos)
+
+        self.y_pred_prob = y_pred_prob
+        self.label_prob = np.max(y_pred_prob, axis=1)
+
+        return y_pred_prob
 
     def score(self, X_in, y_in, X_te_in, y_te_in):
         X = X_in.copy()

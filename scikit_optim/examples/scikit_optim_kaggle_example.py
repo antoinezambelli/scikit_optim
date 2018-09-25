@@ -39,5 +39,3 @@ model_sel.fit(X_tr, Y_tr, X_te, Y_te)
 best_mod = model_sel.models[model_sel.best_model]  # best model object, contains best params.
 # best_mod.best_params = None  # this line would reset the params, and fit() would re-optimize for the full set.
 Y_un_pred = best_mod.fit(X,Y).predict(X,Y,X_un)
-
-

@@ -17,7 +17,6 @@ from sklearn.neighbors import KNeighborsClassifier
 from sklearn.naive_bayes import GaussianNB, MultinomialNB
 from sklearn.model_selection import GridSearchCV, RandomizedSearchCV
 import pandas as pd
-from scipy.stats import randint
 import time
 
 
@@ -228,7 +227,7 @@ class kNN():
         if self.best_params:
             pass
         else:
-            parameters = {'n_neighbors': np.arange(1, 27, 2)}  # TODO: fix this to use smarter range. geomspace() from 1 to len(data)/100? Might need to unique(int()) the geomspace output.
+            parameters = {'n_neighbors': np.unique(np.round(np.geomspace(2, len(X)/100.0))).astype(int)}  # 50 points.
             knn = KNeighborsClassifier()
             clf = GridSearchCV(knn, parameters)
             clf.fit(X, Y)
@@ -373,13 +372,18 @@ class RandForest():
             pass
         else:
             parameters = {
-                'min_samples_split': np.arange(2, 22, 2),  # TODO: fix this to use smarter range.
-                'max_features': randint(1, len(X.columns.values)),
-                'n_estimators': np.arange(10, 110, 10)  # TODO: fix this to use smarter range.
+                'min_samples_split': np.unique(np.round(np.geomspace(2, len(X)/100.0, num=10))).astype(int),
+                'max_features': range(1, len(X_in.columns.values)),
+                'n_estimators': np.unique(np.round(np.geomspace(50, len(X)/100.0, num=10))).astype(int)
             }
             rf = RandomForestClassifier()
             clf = RandomizedSearchCV(rf, parameters, n_iter=self.num_iter)
-            clf.fit(X, Y)
+
+            try:
+                clf.fit(X, Y)
+            except ValueError:
+                clf = GridSearchCV(rf, parameters)  # triggered if space is < num_iter.
+                clf.fit(X, Y)
 
             self.best_params = clf.best_params_
 
@@ -450,15 +454,17 @@ class DecTree():
         if self.best_params:
             pass
         else:
-            if len(range(2, 21))*len(range(1, len(X_in.columns.values))) <= 500:
-                parameters = {'min_samples_split': range(2, 21), 'max_features': range(1, len(X_in.columns.values))}  # TODO: fix this to use smarter range. change if condition as needed.
-                dc = DecisionTreeClassifier()
-                clf = GridSearchCV(dc, parameters)
+            parameters = {
+                'min_samples_split': np.unique(np.round(np.geomspace(2, len(X)/100.0, num=20))).astype(int),
+                'max_features': range(1, len(X_in.columns.values))
+            }
+            dc = DecisionTreeClassifier()
+            clf = RandomizedSearchCV(dc, parameters, n_iter=self.num_iter)
+
+            try:
                 clf.fit(X, Y)
-            else:
-                parameters = {'min_samples_split': range(2, 21), 'max_features': range(1, len(X_in.columns.values))}
-                dc = DecisionTreeClassifier()
-                clf = RandomizedSearchCV(dc, parameters, n_iter=self.num_iter)
+            except ValueError:
+                clf = GridSearchCV(dc, parameters)
                 clf.fit(X, Y)
 
             self.best_params = clf.best_params_

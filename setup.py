@@ -6,7 +6,7 @@
 #
 """
 
-from setuptools import setup
+from setuptools import setup, find_packages
 
 
 version = '1.0.0'
@@ -20,6 +20,20 @@ setup(
     author_email='antoine.zambelli@gmail.com',
     description='Scikit CV',
     long_description='Scikit CV Convenience Library',
+    packages=find_packages(
+        exclude=(
+           '.*',
+           'EGG-INFO',
+           '*.egg-info',
+           '_trial*',
+           "*.tests",
+           "*.tests.*",
+           "tests.*",
+           "tests",
+           "examples.*",
+           "examples",
+        )
+    ),
     include_package_data=True,
     install_requires=[
         'numpy',

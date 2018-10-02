@@ -28,9 +28,9 @@ curr_model = None
 
 
 class ModelSelector():
-    def __init__(self, ignore=[], check=[]):
-        self.ignore_list = ignore  # list of strings,  models to ignore.
-        self.check_list = check  # list of strings,  models to look at only.
+    def __init__(self, ignore=(), check=()):
+        self.ignore_list = list(ignore)  # list of strings,  models to ignore.
+        self.check_list = list(check)  # list of strings,  models to look at only.
         self.summary_df = None  # performance and runtime for each model.
         self.models = None  # dict of model objects
         self.params = None  # dict of all best params for all evaluated models.

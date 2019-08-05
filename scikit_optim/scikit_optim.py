@@ -6,35 +6,43 @@
 #
 """
 
+import math
 import numpy as np
-from sklearn.mixture import BayesianGaussianMixture
-from sklearn.mixture import GaussianMixture
-from sklearn.linear_model import LogisticRegressionCV
-from sklearn.tree import DecisionTreeClassifier
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.svm import SVC
-from sklearn.neighbors import KNeighborsClassifier
-from sklearn.naive_bayes import GaussianNB, MultinomialNB
-from sklearn.model_selection import GridSearchCV, RandomizedSearchCV
+import os
 import pandas as pd
 import time
+import warnings
+
+import sklearn.metrics
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.linear_model import LogisticRegression
+from sklearn.mixture import GaussianMixture
+from sklearn.model_selection import GridSearchCV, RandomizedSearchCV
+from sklearn.naive_bayes import GaussianNB, MultinomialNB
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.svm import SVC
+from sklearn.tree import DecisionTreeClassifier
 
 
+warnings.filterwarnings('ignore', category=FutureWarning)
+warnings.filterwarnings('ignore', category=UserWarning)
 done_list = None
 todo_list = None
 t_1 = None
 t_0 = None
 curr_model = None
 
+CPU_USE = math.ceil(os.cpu_count() / 3)  # 12 -> 4 ~ 50% usage; 4 -> 2 ~ 75% usage.
 
 class ModelSelector():
-    def __init__(self, ignore=(), check=()):
-        self.ignore_list = list(ignore)  # list of strings,  models to ignore.
-        self.check_list = list(check)  # list of strings,  models to look at only.
+    def __init__(self, ignore=(), check=(), acc_metric='accuracy_score'):
+        self.ignore_list = list(ignore)  # list of strings, models to ignore.
+        self.check_list = list(check)  # list of strings, models to look at only.
+        self.acc_metric = acc_metric  # scoring param to optimize on in CV.
         self.summary_df = None  # performance and runtime for each model.
         self.models = None  # dict of model objects
         self.params = None  # dict of all best params for all evaluated models.
-        self.best_model = None  # string,  name of best model.
+        self.best_model = None  # string, name of best model.
         self.best_params = None  # dict of best params for the best model.
 
     def fit(self, X_in, y_in, X_te_in, y_te_in):
@@ -62,36 +70,33 @@ class ModelSelector():
             t_0 = time.time()
             curr_model = model
             if model == 'GMM':
-                mod = GMM()
+                mod = GMM(acc_metric=self.acc_metric)
                 mod_score = round(mod.score(X_in, y_in, X_te_in, y_te_in) * 100,  2)
             elif model == 'LogRegress':
-                mod = LogRegress()
+                mod = LogRegress(acc_metric=self.acc_metric)
                 mod_score = round(mod.score(X_in, y_in, X_te_in, y_te_in) * 100,  2)
             elif model == 'DecTree':
-                mod = DecTree()
+                mod = DecTree(acc_metric=self.acc_metric)
                 mod_score = round(mod.score(X_in, y_in, X_te_in, y_te_in) * 100,  2)
             elif model == 'RandForest':
-                mod = RandForest()
+                mod = RandForest(acc_metric=self.acc_metric)
                 mod_score = round(mod.score(X_in, y_in, X_te_in, y_te_in) * 100,  2)
             elif model == 'SupportVC':
-                mod = SupportVC()
+                mod = SupportVC(acc_metric=self.acc_metric)
                 mod_score = round(mod.score(X_in, y_in, X_te_in, y_te_in) * 100,  2)
             elif model == 'kNN':
-                mod = kNN()
-                mod_score = round(mod.score(X_in, y_in, X_te_in, y_te_in) * 100,  2)
-            elif model == 'BGMM':
-                mod = BGMM()
+                mod = kNN(acc_metric=self.acc_metric)
                 mod_score = round(mod.score(X_in, y_in, X_te_in, y_te_in) * 100,  2)
             elif model == 'GaussNB':
-                mod = GaussNB()
+                mod = GaussNB(acc_metric=self.acc_metric)
                 mod_score = round(mod.score(X_in, y_in, X_te_in, y_te_in) * 100,  2)
             elif model == 'MultiNB':
-                mod = MultiNB()
+                mod = MultiNB(acc_metric=self.acc_metric)
                 mod_score = round(mod.score(X_in, y_in, X_te_in, y_te_in) * 100,  2)
 
             summary_dict[model] = {
                 'time': time.strftime("%H:%M:%S",  time.gmtime(time.time()-t_0)),
-                'accuracy': mod_score
+                self.acc_metric: mod_score
             }
 
             params[model] = mod.best_params
@@ -101,7 +106,7 @@ class ModelSelector():
 
         # get df and sort based on perf. store bests.
         summ_df = pd.DataFrame.from_dict(summary_dict, orient='index')
-        summ_df = summ_df.sort_values(by=['accuracy'], ascending=False)
+        summ_df = summ_df.sort_values(by=[self.acc_metric], ascending=False)
 
         self.best_model = summ_df.index[0]
         self.best_params = params[self.best_model]
@@ -113,10 +118,11 @@ class ModelSelector():
 
 
 class GaussNB():
-    def __init__(self):
+    def __init__(self, acc_metric='accuracy_score'):
         self.y_pred = None
         self.y_pred_prob = None
         self.label_prob = None
+        self.acc_metric = acc_metric
         self.accuracy_score = None
         self.best_params = None
 
@@ -155,18 +161,22 @@ class GaussNB():
         X_te = X_te_in.copy()
         y_te = y_te_in.copy()
 
-        y_pred = self.fit(X, y).predict(X, y, X_te)
-        acc_score = len(np.where(y_pred == y_te)[0])/float(len(y_te))
+        if self.acc_metric == 'average_precision_score':
+            y_pred = self.fit(X, y).predict_proba(X, y, X_te)[:, 1]
+        else:
+            y_pred = self.fit(X, y).predict(X, y, X_te)
+        acc_score = getattr(sklearn.metrics, self.acc_metric)(y_te, y_pred)
 
         self.accuracy_score = acc_score
         return acc_score
 
 
 class MultiNB():
-    def __init__(self):
+    def __init__(self, acc_metric='accuracy_score'):
         self.y_pred = None
         self.y_pred_prob = None
         self.label_prob = None
+        self.acc_metric = acc_metric
         self.accuracy_score = None
         self.best_params = None
 
@@ -205,19 +215,23 @@ class MultiNB():
         X_te = X_te_in.copy()
         y_te = y_te_in.copy()
 
-        y_pred = self.fit(X, y).predict(X, y, X_te)
-        acc_score = len(np.where(y_pred == y_te)[0])/float(len(y_te))
+        if self.acc_metric == 'average_precision_score':
+            y_pred = self.fit(X, y).predict_proba(X, y, X_te)[:, 1]
+        else:
+            y_pred = self.fit(X, y).predict(X, y, X_te)
+        acc_score = getattr(sklearn.metrics, self.acc_metric)(y_te, y_pred)
 
         self.accuracy_score = acc_score
         return acc_score
 
 
 class kNN():
-    def __init__(self, best_params=None):
+    def __init__(self, best_params=None, acc_metric='accuracy_score'):
         self.best_params = best_params
         self.y_pred = None
         self.y_pred_prob = None
         self.label_prob = None
+        self.acc_metric = acc_metric
         self.accuracy_score = None
 
     def fit(self, X_in, Y_in):
@@ -227,12 +241,24 @@ class kNN():
         if self.best_params:
             pass
         else:
-            parameters = {'n_neighbors': np.unique(np.round(np.geomspace(2, len(X)/100.0))).astype(int)}  # 50 points.
+            parameters = {
+                'n_neighbors': [
+                    val
+                    for val in np.unique(np.round(np.geomspace(2, min(len(X)/100.0, 5)))).astype(int)
+                    if val % 2 == 1
+                ]
+            }
             knn = KNeighborsClassifier()
-            clf = GridSearchCV(knn, parameters)
+            clf = GridSearchCV(
+                knn,
+                n_jobs=CPU_USE,
+                param_grid=parameters,
+                scoring=self.acc_metric.split('_score')[0]
+            )
             clf.fit(X, Y)
 
             self.best_params = clf.best_params_
+            print(clf.best_params_)
 
         return self
 
@@ -242,7 +268,6 @@ class kNN():
         X_oos = X_te_in.copy()
 
         best_params = self.best_params
-
         y_pred = KNeighborsClassifier(n_neighbors=best_params['n_neighbors']).fit(X_tr, Y_tr).predict(X_oos)
 
         self.y_pred = y_pred
@@ -270,19 +295,23 @@ class kNN():
         X_te = X_te_in.copy()
         y_te = y_te_in.copy()
 
-        y_pred = self.fit(X, y).predict(X, y, X_te)
-        acc_score = len(np.where(y_pred == y_te)[0])/float(len(y_te))
+        if self.acc_metric == 'average_precision_score':
+            y_pred = self.fit(X, y).predict_proba(X, y, X_te)[:, 1]
+        else:
+            y_pred = self.fit(X, y).predict(X, y, X_te)
+        acc_score = getattr(sklearn.metrics, self.acc_metric)(y_te, y_pred)
 
         self.accuracy_score = acc_score
         return acc_score
 
 
 class SupportVC():
-    def __init__(self, best_params=None):
+    def __init__(self, best_params=None, acc_metric='accuracy_score'):
         self.best_params = best_params
         self.y_pred = None
         self.y_pred_prob = None
         self.label_prob = None
+        self.acc_metric = acc_metric
         self.accuracy_score = None
 
     def fit(self, X_in, Y_in):
@@ -295,11 +324,11 @@ class SupportVC():
             parameters = {
                 'kernel': ['rbf', 'sigmoid', 'linear'],
                 'gamma': np.arange(0.1, 1.0, 0.1),
-                'C': np.geomspace(0.01, 100, num=20)
+                'C': np.geomspace(0.01, 100, num=10)
             }
 
             svc = SVC()
-            clf = GridSearchCV(svc, parameters)
+            clf = GridSearchCV(svc, n_jobs=CPU_USE, param_grid=parameters, scoring=self.acc_metric.split('_score')[0])
             clf.fit(X, Y)
 
             self.best_params = clf.best_params_
@@ -348,19 +377,23 @@ class SupportVC():
         X_te = X_te_in.copy()
         y_te = y_te_in.copy()
 
-        y_pred = self.fit(X, y).predict(X, y, X_te)
-        acc_score = len(np.where(y_pred == y_te)[0])/float(len(y_te))
+        if self.acc_metric == 'average_precision_score':
+            y_pred = self.fit(X, y).predict_proba(X, y, X_te)[:, 1]
+        else:
+            y_pred = self.fit(X, y).predict(X, y, X_te)
+        acc_score = getattr(sklearn.metrics, self.acc_metric)(y_te, y_pred)
 
         self.accuracy_score = acc_score
         return acc_score
 
 
 class RandForest():
-    def __init__(self, num_iter=200, best_params=None):
+    def __init__(self, num_iter=200, best_params=None, acc_metric='accuracy_score'):
         self.best_params = best_params
         self.y_pred = None
         self.y_pred_prob = None
         self.label_prob = None
+        self.acc_metric = acc_metric
         self.accuracy_score = None
         self.num_iter = num_iter
 
@@ -372,17 +405,28 @@ class RandForest():
             pass
         else:
             parameters = {
-                'min_samples_split': np.unique(np.round(np.geomspace(2, len(X)/100.0, num=10))).astype(int),
+                'min_samples_split': np.unique(np.round(np.geomspace(2, min(len(X)/100.0, 25), num=10))).astype(int),
                 'max_features': range(1, len(X_in.columns.values)),
-                'n_estimators': np.unique(np.round(np.geomspace(50, len(X)/100.0, num=10))).astype(int)
+                'n_estimators': np.unique(np.round(np.geomspace(50, min(len(X)/100.0, 200), num=10))).astype(int)
             }
             rf = RandomForestClassifier()
-            clf = RandomizedSearchCV(rf, parameters, n_iter=self.num_iter)
+            clf = RandomizedSearchCV(
+                rf,
+                n_jobs=CPU_USE,
+                param_distributions=parameters,
+                scoring=self.acc_metric.split('_score')[0],
+                n_iter=self.num_iter
+            )
 
             try:
                 clf.fit(X, Y)
             except ValueError:
-                clf = GridSearchCV(rf, parameters)  # triggered if space is < num_iter.
+                clf = GridSearchCV(
+                    rf,
+                    n_jobs=CPU_USE,
+                    param_grid=parameters,
+                    scoring=self.acc_metric.split('_score')[0]
+                )  # triggers if space is < num_iter.
                 clf.fit(X, Y)
 
             self.best_params = clf.best_params_
@@ -431,19 +475,23 @@ class RandForest():
         X_te = X_te_in.copy()
         y_te = y_te_in.copy()
 
-        y_pred = self.fit(X, y).predict(X, y, X_te)
-        acc_score = len(np.where(y_pred == y_te)[0])/float(len(y_te))
+        if self.acc_metric == 'average_precision_score':
+            y_pred = self.fit(X, y).predict_proba(X, y, X_te)[:, 1]
+        else:
+            y_pred = self.fit(X, y).predict(X, y, X_te)
+        acc_score = getattr(sklearn.metrics, self.acc_metric)(y_te, y_pred)
 
         self.accuracy_score = acc_score
         return acc_score
 
 
 class DecTree():
-    def __init__(self, num_iter=2500, best_params=None):
+    def __init__(self, num_iter=2500, best_params=None, acc_metric='accuracy_score'):
         self.best_params = best_params
         self.y_pred = None
         self.y_pred_prob = None
         self.label_prob = None
+        self.acc_metric = acc_metric
         self.accuracy_score = None
         self.num_iter = num_iter
 
@@ -455,16 +503,27 @@ class DecTree():
             pass
         else:
             parameters = {
-                'min_samples_split': np.unique(np.round(np.geomspace(2, len(X)/100.0, num=20))).astype(int),
+                'min_samples_split': np.unique(np.round(np.geomspace(2, min(len(X)/100.0, 25), num=10))).astype(int),
                 'max_features': range(1, len(X_in.columns.values))
             }
             dc = DecisionTreeClassifier()
-            clf = RandomizedSearchCV(dc, parameters, n_iter=self.num_iter)
+            clf = RandomizedSearchCV(
+                dc,
+                n_jobs=CPU_USE,
+                param_distributions=parameters,
+                scoring=self.acc_metric.split('_score')[0],
+                n_iter=self.num_iter
+            )
 
             try:
                 clf.fit(X, Y)
             except ValueError:
-                clf = GridSearchCV(dc, parameters)
+                clf = GridSearchCV(
+                    dc,
+                    n_jobs=CPU_USE,
+                    param_grid=parameters,
+                    scoring=self.acc_metric.split('_score')[0]
+                )
                 clf.fit(X, Y)
 
             self.best_params = clf.best_params_
@@ -511,19 +570,23 @@ class DecTree():
         X_te = X_te_in.copy()
         y_te = y_te_in.copy()
 
-        y_pred = self.fit(X, y).predict(X, y, X_te)
-        acc_score = len(np.where(y_pred == y_te)[0])/float(len(y_te))
+        if self.acc_metric == 'average_precision_score':
+            y_pred = self.fit(X, y).predict_proba(X, y, X_te)[:, 1]
+        else:
+            y_pred = self.fit(X, y).predict(X, y, X_te)
+        acc_score = getattr(sklearn.metrics, self.acc_metric)(y_te, y_pred)
 
         self.accuracy_score = acc_score
         return acc_score
 
 
 class LogRegress():
-    def __init__(self, num_iter=300, best_params=None):
+    def __init__(self, num_iter=300, best_params=None, acc_metric='accuracy_score'):
         self.best_params = best_params
         self.y_pred = None
         self.y_pred_prob = None
         self.label_prob = None
+        self.acc_metric = acc_metric
         self.accuracy_score = None
         self.num_iter = num_iter
 
@@ -535,10 +598,15 @@ class LogRegress():
             pass
         else:
             solver_list = ['lbfgs', 'newton-cg', 'saga']
-            parameters = {'solver': solver_list, 'Cs': [int(self.num_iter/3.0)]}
+            parameters = {'solver': solver_list, 'C': np.geomspace(0.01, 100, 5)}
 
-            logreg = LogisticRegressionCV()
-            clf = GridSearchCV(logreg,  parameters)
+            logreg = LogisticRegression()
+            clf = GridSearchCV(
+                logreg,
+                n_jobs=CPU_USE,
+                param_grid=parameters,
+                scoring=self.acc_metric.split('_score')[0]
+            )
             clf.fit(X, Y)
 
             self.best_params = clf.best_params_
@@ -552,7 +620,7 @@ class LogRegress():
 
         best_params = self.best_params
 
-        y_pred = LogisticRegressionCV(Cs=best_params['Cs'], solver=best_params['solver']).fit(X_tr, Y_tr).predict(X_oos)
+        y_pred = LogisticRegression(C=best_params['C'], solver=best_params['solver']).fit(X_tr, Y_tr).predict(X_oos)
 
         self.y_pred = y_pred
 
@@ -565,8 +633,8 @@ class LogRegress():
 
         best_params = self.best_params
 
-        y_pred_prob = LogisticRegressionCV(
-            Cs=best_params['Cs'],
+        y_pred_prob = LogisticRegression(
+            C=best_params['C'],
             solver=best_params['solver']
         ).fit(X_tr, Y_tr).predict_proba(X_oos)
 
@@ -582,17 +650,21 @@ class LogRegress():
         X_te = X_te_in.copy()
         y_te = y_te_in.copy()
 
-        y_pred = self.fit(X, y).predict(X, y, X_te)
-        acc_score = len(np.where(y_pred == y_te)[0])/float(len(y_te))
+        if self.acc_metric == 'average_precision_score':
+            y_pred = self.fit(X, y).predict_proba(X, y, X_te)[:, 1]
+        else:
+            y_pred = self.fit(X, y).predict(X, y, X_te)
+        acc_score = getattr(sklearn.metrics, self.acc_metric)(y_te, y_pred)
 
         self.accuracy_score = acc_score
         return acc_score
 
 
-class BGMM():
-    def __init__(self, best_params=None):
+class GMM():
+    def __init__(self, best_params=None, acc_metric='accuracy_score'):
         self.best_params = best_params
         self.y_pred = None
+        self.acc_metric = acc_metric
         self.accuracy_score = None
 
     def fit(self, X_in, Y_in):
@@ -602,22 +674,21 @@ class BGMM():
         if self.best_params:
             pass
         else:
-            unique_class_vals = Y.unique()
-
             parameters = {
-                'n_components': np.arange(1, 27, 2),
-                'covariance_type': ['full', 'diag', 'spherical', 'tied'],
-                'weight_concentration_prior': [0.01, 0.1, 1.0, 10.0, 100.0]
+                'n_components': [2],
+                'covariance_type': ['full', 'diag', 'spherical', 'tied']
             }
-            gmm_param_dict = {class_val: 0 for class_val in unique_class_vals}
 
-            gmm = BayesianGaussianMixture(reg_covar=1)
-            clf = GridSearchCV(gmm,  parameters)
-            for class_val in unique_class_vals:
-                clf.fit(X[Y == class_val], Y[Y == class_val])
-                gmm_param_dict[class_val] = clf.best_params_
+            gmm = GaussianMixture()
+            clf = GridSearchCV(
+                gmm,
+                n_jobs=CPU_USE,
+                param_grid=parameters,
+                scoring=self.acc_metric.split('_score')[0]
+            )
+            clf.fit(X, Y)
 
-            self.best_params = gmm_param_dict
+            self.best_params = clf.best_params_
 
         return self
 
@@ -626,27 +697,33 @@ class BGMM():
         Y_tr = y_in.copy()
         X_oos = X_te_in.copy()
 
-        unique_class_vals = Y_tr.unique()
+        best_params = self.best_params
+
+        y_pred = GaussianMixture(
+            n_components=best_params['n_components'],
+            covariance_type=best_params['covariance_type']
+        ).fit(X_tr, Y_tr).predict(X_oos)
+
+        self.y_pred = y_pred
+
+        return res_df.values
+
+    def predict_proba(self, X_in, y_in, X_te_in):
+        X_tr = X_in.copy()
+        Y_tr = y_in.copy()
+        X_oos = X_te_in.copy()
 
         best_params = self.best_params
 
-        gmm_dict = {class_val: 0 for class_val in unique_class_vals}
-        for class_val in unique_class_vals:
-            gmm = BayesianGaussianMixture(
-                n_components=best_params[class_val]['n_components'],
-                covariance_type=best_params[class_val]['covariance_type'],
-                weight_concentration_prior=best_params[class_val]['weight_concentration_prior'],
-                reg_covar=1
-            ).fit(X_tr[Y_tr == class_val], Y_tr[Y_tr == class_val])
+        y_pred_prob = GaussianMixture(
+            n_components=best_params['n_components'],
+            covariance_type=best_params['covariance_type']
+        ).fit(X_tr, Y_tr).predict_proba(X_oos)
 
-            gmm_dict[class_val] = np.exp(gmm.score_samples(X_oos))
+        self.y_pred_prob = y_pred_prob
+        self.label_prob = np.max(y_pred_prob, axis=1)
 
-        gmm_df = pd.DataFrame.from_dict(gmm_dict)
-        res_df = gmm_df.idxmax(axis=1)
-
-        self.y_pred = res_df.values
-
-        return res_df.values
+        return y_pred_prob
 
     def score(self, X_in, y_in, X_te_in, y_te_in):
         X = X_in.copy()
@@ -655,113 +732,11 @@ class BGMM():
         X_te = X_te_in.copy()
         y_te = y_te_in.copy()
 
-        y_pred = self.fit(X, y).predict(X, y, X_te)
-        acc_score = len(np.where(y_pred == y_te)[0])/float(len(y_te))
-
-        self.accuracy_score = acc_score
-        return acc_score
-
-
-class GMM():
-    def __init__(self, best_params=None):
-        self.best_params = best_params
-        self.y_pred = None
-        self.accuracy_score = None
-
-    def fit(self, X_in, Y_in):
-        X_tr = X_in.copy()
-        Y_tr = Y_in.copy()
-
-        if self.best_params:
-            pass
+        if self.acc_metric == 'average_precision_score':
+            y_pred = self.fit(X, y).predict_proba(X, y, X_te)[:, 1]
         else:
-            unique_class_vals = Y_tr.unique()
-
-            n_comp_list = range(1, 26)  # this may require try catch below.
-            covar_list = ['full', 'diag', 'spherical', 'tied']
-
-            gmm_param_dict = {class_val: {
-                (n_comp, cov): GaussianMixture(
-                    n_components=n_comp,
-                    covariance_type=cov
-                ).fit(
-                    X_tr[Y_tr == class_val], Y_tr[Y_tr == class_val]
-                ).bic(
-                    X_tr[Y_tr == class_val]
-                ) for n_comp in n_comp_list for cov in covar_list
-            } for class_val in unique_class_vals}
-
-            gmm_dict = {class_val: 0 for class_val in unique_class_vals}
-            for class_val in unique_class_vals:
-                gmm_dict[class_val] = min(gmm_param_dict[class_val],  key=gmm_param_dict[class_val].get)
-
-            self.best_params = gmm_dict
-
-        return self
-
-    def predict(self, X_in, y_in, X_te_in):
-        X_tr = X_in.copy()
-        Y_tr = y_in.copy()
-        X_oos = X_te_in.copy()
-
-        best_params = self.best_params
-        unique_class_vals = best_params.keys()
-
-        gmm_dict = {class_val: 0 for class_val in unique_class_vals}
-        for class_val in unique_class_vals:
-            try:
-                gmm = GaussianMixture(
-                    n_components=best_params[class_val][0],
-                    covariance_type=best_params[class_val][1]
-                ).fit(X_tr[Y_tr == class_val], Y_tr[Y_tr == class_val])
-            except:
-                gmm = GaussianMixture(
-                    n_components=best_params[class_val][0],
-                    covariance_type=best_params[class_val][1],
-                    reg_covar=1
-                ).fit(X_tr[Y_tr == class_val], Y_tr[Y_tr == class_val])
-            gmm_dict[class_val] = np.exp(gmm.score_samples(X_oos))
-
-        gmm_df = pd.DataFrame.from_dict(gmm_dict)
-        res_df = gmm_df.idxmax(axis=1)
-        self.y_pred = res_df.values
-
-        return res_df.values
-
-    def score(self, X_in, y_in, X_te_in, y_te_in):
-        X = X_in.copy()
-        y = y_in.copy()
-
-        X_te = X_te_in.copy()
-        y_te = y_te_in.copy()
-
-        y_pred = self.fit(X, y).predict(X, y, X_te)
-        acc_score = len(np.where(y_pred == y_te)[0])/float(len(y_te))
+            y_pred = self.fit(X, y).predict(X, y, X_te)
+        acc_score = getattr(sklearn.metrics, self.acc_metric)(y_te, y_pred)
 
         self.accuracy_score = acc_score
         return acc_score
-
-    def score_samples(self, X_in, y_in, X_te_in):
-        X_tr = X_in.copy()
-        Y_tr = y_in.copy()
-        X_oos = X_te_in.copy()
-
-        best_params = self.best_params
-        unique_class_vals = best_params.keys()
-
-        gmm_dict = {class_val: 0 for class_val in unique_class_vals}
-        for class_val in unique_class_vals:
-            try:
-                gmm = GaussianMixture(
-                    n_components=best_params[class_val][0],
-                    covariance_type=best_params[class_val][1]
-                ).fit(X_tr[Y_tr == class_val], Y_tr[Y_tr == class_val])
-            except:
-                gmm = GaussianMixture(
-                    n_components=best_params[class_val][0],
-                    covariance_type=best_params[class_val][1],
-                    reg_covar=1
-                ).fit(X_tr[Y_tr == class_val], Y_tr[Y_tr == class_val])
-            gmm_dict[class_val] = np.exp(gmm.score_samples(X_oos))
-
-        return gmm_dict

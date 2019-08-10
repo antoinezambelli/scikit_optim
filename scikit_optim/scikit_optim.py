@@ -24,8 +24,9 @@ from sklearn.svm import SVC
 from sklearn.tree import DecisionTreeClassifier
 
 
-warnings.filterwarnings('ignore', category=FutureWarning)
-warnings.filterwarnings('ignore', category=UserWarning)
+warnings.filterwarnings('ignore')
+# warnings.filterwarnings('ignore', category=FutureWarning)
+# warnings.filterwarnings('ignore', category=UserWarning)
 done_list = None
 todo_list = None
 t_1 = None

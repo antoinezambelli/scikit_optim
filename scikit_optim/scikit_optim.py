@@ -11,7 +11,10 @@ import numpy as np
 import os
 import pandas as pd
 import time
+def warn(*args, **kwargs):
+    pass
 import warnings
+warnings.warn = warn
 
 import sklearn.metrics
 from sklearn.ensemble import RandomForestClassifier
@@ -24,9 +27,6 @@ from sklearn.svm import SVC
 from sklearn.tree import DecisionTreeClassifier
 
 
-warnings.filterwarnings('ignore')
-# warnings.filterwarnings('ignore', category=FutureWarning)
-# warnings.filterwarnings('ignore', category=UserWarning)
 done_list = None
 todo_list = None
 t_1 = None

@@ -11,10 +11,6 @@ import numpy as np
 import os
 import pandas as pd
 import time
-def warn(*args, **kwargs):
-    pass
-import warnings
-warnings.warn = warn
 
 import sklearn.metrics
 from sklearn.ensemble import RandomForestClassifier
@@ -25,7 +21,8 @@ from sklearn.naive_bayes import GaussianNB, MultinomialNB
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.svm import SVC
 from sklearn.tree import DecisionTreeClassifier
-
+from sklearn.utils.testing import ignore_warnings
+from sklearn.exceptions import ConvergenceWarning
 
 done_list = None
 todo_list = None
@@ -46,6 +43,7 @@ class ModelSelector():
         self.best_model = None  # string, name of best model.
         self.best_params = None  # dict of best params for the best model.
 
+    @ignore_warnings(category=ConvergenceWarning)
     def fit(self, X_in, y_in, X_te_in, y_te_in):
         global done_list
         global todo_list

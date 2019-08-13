@@ -10,7 +10,9 @@ import math
 import numpy as np
 import os
 import pandas as pd
+import sys
 import time
+import warnings
 
 import sklearn.metrics
 from sklearn.ensemble import RandomForestClassifier
@@ -21,8 +23,10 @@ from sklearn.naive_bayes import GaussianNB, MultinomialNB
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.svm import SVC
 from sklearn.tree import DecisionTreeClassifier
-from sklearn.utils.testing import ignore_warnings
-from sklearn.exceptions import ConvergenceWarning
+
+if not sys.warnoptions:
+    warnings.simplefilter('ignore')
+    os.environ['PYTHONWARNINGS'] = 'ignore'
 
 done_list = None
 todo_list = None
@@ -232,7 +236,6 @@ class kNN():
         self.acc_metric = acc_metric
         self.accuracy_score = None
 
-    @ignore_warnings(category=ConvergenceWarning)
     def fit(self, X_in, Y_in):
         X = X_in.copy()
         Y = Y_in.copy()
@@ -313,7 +316,6 @@ class SupportVC():
         self.acc_metric = acc_metric
         self.accuracy_score = None
 
-    @ignore_warnings(category=ConvergenceWarning)
     def fit(self, X_in, Y_in):
         X = X_in.copy()
         Y = Y_in.copy()
@@ -397,7 +399,6 @@ class RandForest():
         self.accuracy_score = None
         self.num_iter = num_iter
 
-    @ignore_warnings(category=ConvergenceWarning)
     def fit(self, X_in, Y_in):
         X = X_in.copy()
         Y = Y_in.copy()
@@ -496,7 +497,6 @@ class DecTree():
         self.accuracy_score = None
         self.num_iter = num_iter
 
-    @ignore_warnings(category=ConvergenceWarning)
     def fit(self, X_in, Y_in):
         X = X_in.copy()
         Y = Y_in.copy()
@@ -592,7 +592,6 @@ class LogRegress():
         self.accuracy_score = None
         self.num_iter = num_iter
 
-    @ignore_warnings(category=ConvergenceWarning)
     def fit(self, X_in, Y_in):
         X = X_in.copy()
         Y = Y_in.copy()
@@ -670,7 +669,6 @@ class GMM():
         self.acc_metric = acc_metric
         self.accuracy_score = None
 
-    @ignore_warnings(category=ConvergenceWarning)
     def fit(self, X_in, Y_in):
         X = X_in.copy()
         Y = Y_in.copy()

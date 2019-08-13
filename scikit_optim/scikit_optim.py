@@ -43,7 +43,6 @@ class ModelSelector():
         self.best_model = None  # string, name of best model.
         self.best_params = None  # dict of best params for the best model.
 
-    @ignore_warnings(category=ConvergenceWarning)
     def fit(self, X_in, y_in, X_te_in, y_te_in):
         global done_list
         global todo_list
@@ -233,6 +232,7 @@ class kNN():
         self.acc_metric = acc_metric
         self.accuracy_score = None
 
+    @ignore_warnings(category=ConvergenceWarning)
     def fit(self, X_in, Y_in):
         X = X_in.copy()
         Y = Y_in.copy()
@@ -313,6 +313,7 @@ class SupportVC():
         self.acc_metric = acc_metric
         self.accuracy_score = None
 
+    @ignore_warnings(category=ConvergenceWarning)
     def fit(self, X_in, Y_in):
         X = X_in.copy()
         Y = Y_in.copy()
@@ -396,6 +397,7 @@ class RandForest():
         self.accuracy_score = None
         self.num_iter = num_iter
 
+    @ignore_warnings(category=ConvergenceWarning)
     def fit(self, X_in, Y_in):
         X = X_in.copy()
         Y = Y_in.copy()
@@ -494,6 +496,7 @@ class DecTree():
         self.accuracy_score = None
         self.num_iter = num_iter
 
+    @ignore_warnings(category=ConvergenceWarning)
     def fit(self, X_in, Y_in):
         X = X_in.copy()
         Y = Y_in.copy()
@@ -589,6 +592,7 @@ class LogRegress():
         self.accuracy_score = None
         self.num_iter = num_iter
 
+    @ignore_warnings(category=ConvergenceWarning)
     def fit(self, X_in, Y_in):
         X = X_in.copy()
         Y = Y_in.copy()
@@ -666,6 +670,7 @@ class GMM():
         self.acc_metric = acc_metric
         self.accuracy_score = None
 
+    @ignore_warnings(category=ConvergenceWarning)
     def fit(self, X_in, Y_in):
         X = X_in.copy()
         Y = Y_in.copy()

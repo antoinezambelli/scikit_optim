@@ -6,7 +6,6 @@
 #
 """
 
-import math
 import numpy as np
 import os
 import pandas as pd
@@ -34,7 +33,7 @@ t_1 = None
 t_0 = None
 curr_model = None
 
-CPU_USE = math.ceil(os.cpu_count() / 3)  # 12 -> 4 ~ 50% usage; 4 -> 2 ~ 75% usage.
+CPU_USE = max(os.cpu_count() // 3, 1)  # 12 -> 4; 8 -> 2 (good for laptops).
 
 class ModelSelector():
     def __init__(self, ignore=(), check=(), acc_metric='accuracy_score'):

@@ -139,7 +139,29 @@ class GaussNB():
         self.best_score = 0
 
     def fit(self, X_in, Y_in):
-        pass
+        X = X_in.copy()
+        Y = Y_in.copy()
+
+        if self.best_params:
+            pass
+        else:
+            parameters = {
+                'var_smoothing': np.concatenate(
+                    [np.geomspace(1e-12, 1e-9, 5), np.geomspace(1e-9, 1e-3, 10)]
+                )
+            }
+            gnb = GaussianNB()
+            clf = GridSearchCV(
+                gnb,
+                n_jobs=CPU_USE,
+                param_grid=parameters,
+                scoring=self.acc_metric.split('_score')[0],
+                cv=5
+            )
+            clf.fit(X, Y)
+
+            self.best_params = clf.best_params_
+            self.best_score = clf.best_score_
 
         return self
 
@@ -148,7 +170,9 @@ class GaussNB():
         Y_tr = y_in.copy()
         X_oos = X_te_in.copy()
 
-        y_pred = GaussianNB().fit(X_tr, Y_tr).predict(X_oos)
+        best_params = self.best_params
+
+        y_pred = GaussianNB(var_smoothing=best_params['var_smoothing']).fit(X_tr, Y_tr).predict(X_oos)
 
         self.y_pred = y_pred
 
@@ -159,7 +183,9 @@ class GaussNB():
         Y_tr = y_in.copy()
         X_oos = X_te_in.copy()
 
-        y_pred_prob = GaussianNB().fit(X_tr, Y_tr).predict_proba(X_oos)
+        best_params = self.best_params
+
+        y_pred_prob = GaussianNB(var_smoothing=best_params['var_smoothing']).fit(X_tr, Y_tr).predict_proba(X_oos)
 
         self.y_pred_prob = y_pred_prob
         self.label_prob = np.max(y_pred_prob, axis=1)
@@ -194,7 +220,27 @@ class MultiNB():
         self.best_score = 0
 
     def fit(self, X_in, Y_in):
-        pass
+        X = X_in.copy()
+        Y = Y_in.copy()
+
+        if self.best_params:
+            pass
+        else:
+            parameters = {
+                'alpha': np.linspace(0,1,11)  # [0.1, 0.2, ..., 1.0].
+            }
+            mnb = MultinomialNB()
+            clf = GridSearchCV(
+                mnb,
+                n_jobs=CPU_USE,
+                param_grid=parameters,
+                scoring=self.acc_metric.split('_score')[0],
+                cv=5
+            )
+            clf.fit(X, Y)
+
+            self.best_params = clf.best_params_
+            self.best_score = clf.best_score_
 
         return self
 
@@ -203,7 +249,9 @@ class MultiNB():
         Y_tr = y_in.copy()
         X_oos = X_te_in.copy()
 
-        y_pred = MultinomialNB().fit(X_tr, Y_tr).predict(X_oos)
+        best_params = self.best_params
+
+        y_pred = MultinomialNB(alpha=best_params['alpha']).fit(X_tr, Y_tr).predict(X_oos)
 
         self.y_pred = y_pred
 
@@ -214,7 +262,9 @@ class MultiNB():
         Y_tr = y_in.copy()
         X_oos = X_te_in.copy()
 
-        y_pred_prob = MultinomialNB().fit(X_tr, Y_tr).predict_proba(X_oos)
+        best_params = self.best_params
+
+        y_pred_prob = MultinomialNB(alpha=best_params['alpha']).fit(X_tr, Y_tr).predict_proba(X_oos)
 
         self.y_pred_prob = y_pred_prob
         self.label_prob = np.max(y_pred_prob, axis=1)
@@ -267,13 +317,13 @@ class kNN():
                 knn,
                 n_jobs=CPU_USE,
                 param_grid=parameters,
-                scoring=self.acc_metric.split('_score')[0]
+                scoring=self.acc_metric.split('_score')[0],
+                cv=5
             )
             clf.fit(X, Y)
 
             self.best_params = clf.best_params_
             self.best_score = clf.best_score_
-            print(clf.best_params_)
 
         return self
 
@@ -344,7 +394,7 @@ class SupportVC():
             }
 
             svc = SVC()
-            clf = GridSearchCV(svc, n_jobs=CPU_USE, param_grid=parameters, scoring=self.acc_metric.split('_score')[0])
+            clf = GridSearchCV(svc, n_jobs=CPU_USE, param_grid=parameters, scoring=self.acc_metric.split('_score')[0], cv=5)
             clf.fit(X, Y)
 
             self.best_params = clf.best_params_
@@ -433,7 +483,8 @@ class RandForest():
                 n_jobs=CPU_USE,
                 param_distributions=parameters,
                 scoring=self.acc_metric.split('_score')[0],
-                n_iter=self.num_iter
+                n_iter=self.num_iter,
+                cv=5
             )
 
             try:
@@ -443,7 +494,8 @@ class RandForest():
                     rf,
                     n_jobs=CPU_USE,
                     param_grid=parameters,
-                    scoring=self.acc_metric.split('_score')[0]
+                    scoring=self.acc_metric.split('_score')[0],
+                    cv=5
                 )  # triggers if space is < num_iter.
                 clf.fit(X, Y)
 
@@ -532,7 +584,8 @@ class DecTree():
                 n_jobs=CPU_USE,
                 param_distributions=parameters,
                 scoring=self.acc_metric.split('_score')[0],
-                n_iter=self.num_iter
+                n_iter=self.num_iter,
+                cv=5
             )
 
             try:
@@ -542,7 +595,8 @@ class DecTree():
                     dc,
                     n_jobs=CPU_USE,
                     param_grid=parameters,
-                    scoring=self.acc_metric.split('_score')[0]
+                    scoring=self.acc_metric.split('_score')[0],
+                    cv=5
                 )
                 clf.fit(X, Y)
 
@@ -627,7 +681,8 @@ class LogRegress():
                 logreg,
                 n_jobs=CPU_USE,
                 param_grid=parameters,
-                scoring=self.acc_metric.split('_score')[0]
+                scoring=self.acc_metric.split('_score')[0],
+                cv=5
             )
             clf.fit(X, Y)
 
@@ -708,7 +763,8 @@ class GMM():
                 gmm,
                 n_jobs=CPU_USE,
                 param_grid=parameters,
-                scoring=self.acc_metric.split('_score')[0]
+                scoring=self.acc_metric.split('_score')[0],
+                cv=5
             )
             clf.fit(X, Y)
 

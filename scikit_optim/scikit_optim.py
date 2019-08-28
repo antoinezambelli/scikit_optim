@@ -41,6 +41,7 @@ class ModelSelector():
         self.check_list = list(check)  # list of strings, models to look at only.
         self.acc_metric = acc_metric  # scoring param to optimize on in CV.
         self.summary_df = None  # performance and runtime for each model.
+        self.summary_df_cv = None  # in-sample performance version - best CV-search score.
         self.models = None  # dict of model objects
         self.params = None  # dict of all best params for all evaluated models.
         self.best_model = None  # string, name of best model.
@@ -63,6 +64,7 @@ class ModelSelector():
 
         todo_list = [x for x in self.check_list if x not in self.ignore_list]  # list of models to evaluate.
         summary_dict = {model: 0 for model in todo_list}  # eventually turn into df.
+        summary_dict_cv = {model: 0 for model in todo_list}
         model_dict = {model: 0 for model in todo_list}
         params = {model: 0 for model in todo_list}  # stores params for each model.
 
@@ -99,6 +101,10 @@ class ModelSelector():
                 'time': time.strftime("%H:%M:%S",  time.gmtime(time.time()-t_0)),
                 self.acc_metric: mod_score
             }
+            summary_dict_cv[model] = {
+                'time': time.strftime("%H:%M:%S",  time.gmtime(time.time()-t_0)),
+                self.acc_metric: mod.best_score
+            }
 
             params[model] = mod.best_params
             model_dict[model] = mod
@@ -109,10 +115,14 @@ class ModelSelector():
         summ_df = pd.DataFrame.from_dict(summary_dict, orient='index')
         summ_df = summ_df.sort_values(by=[self.acc_metric], ascending=False)
 
+        summ_df_cv = pd.DataFrame.from_dict(summary_dict_cv, orient='index')
+        summ_df_cv = summ_df_cv.sort_values(by=[self.acc_metric], ascending=False)
+
         self.best_model = summ_df.index[0]
         self.best_params = params[self.best_model]
         self.params = params
         self.summary_df = summ_df
+        self.summary_df_cv = summ_df_cv
         self.models = model_dict
 
         return self
@@ -126,6 +136,7 @@ class GaussNB():
         self.acc_metric = acc_metric
         self.accuracy_score = None
         self.best_params = None
+        self.best_score = 0
 
     def fit(self, X_in, Y_in):
         pass
@@ -180,6 +191,7 @@ class MultiNB():
         self.acc_metric = acc_metric
         self.accuracy_score = None
         self.best_params = None
+        self.best_score = 0
 
     def fit(self, X_in, Y_in):
         pass
@@ -234,6 +246,7 @@ class kNN():
         self.label_prob = None
         self.acc_metric = acc_metric
         self.accuracy_score = None
+        self.best_score = 0
 
     def fit(self, X_in, Y_in):
         X = X_in.copy()
@@ -259,6 +272,7 @@ class kNN():
             clf.fit(X, Y)
 
             self.best_params = clf.best_params_
+            self.best_score = clf.best_score_
             print(clf.best_params_)
 
         return self
@@ -314,6 +328,7 @@ class SupportVC():
         self.label_prob = None
         self.acc_metric = acc_metric
         self.accuracy_score = None
+        self.best_score = 0
 
     def fit(self, X_in, Y_in):
         X = X_in.copy()
@@ -333,6 +348,7 @@ class SupportVC():
             clf.fit(X, Y)
 
             self.best_params = clf.best_params_
+            self.best_score = clf.best_score_
 
         return self
 
@@ -397,6 +413,7 @@ class RandForest():
         self.acc_metric = acc_metric
         self.accuracy_score = None
         self.num_iter = num_iter
+        self.best_score = 0
 
     def fit(self, X_in, Y_in):
         X = X_in.copy()
@@ -431,6 +448,7 @@ class RandForest():
                 clf.fit(X, Y)
 
             self.best_params = clf.best_params_
+            self.best_score = clf.best_score_
 
         return self
 
@@ -495,6 +513,7 @@ class DecTree():
         self.acc_metric = acc_metric
         self.accuracy_score = None
         self.num_iter = num_iter
+        self.best_score = 0
 
     def fit(self, X_in, Y_in):
         X = X_in.copy()
@@ -528,6 +547,7 @@ class DecTree():
                 clf.fit(X, Y)
 
             self.best_params = clf.best_params_
+            self.best_score = clf.best_score_
 
         return self
 
@@ -590,6 +610,7 @@ class LogRegress():
         self.acc_metric = acc_metric
         self.accuracy_score = None
         self.num_iter = num_iter
+        self.best_score = 0
 
     def fit(self, X_in, Y_in):
         X = X_in.copy()
@@ -611,6 +632,7 @@ class LogRegress():
             clf.fit(X, Y)
 
             self.best_params = clf.best_params_
+            self.best_score = clf.best_score_
 
         return self
 
@@ -667,6 +689,7 @@ class GMM():
         self.y_pred = None
         self.acc_metric = acc_metric
         self.accuracy_score = None
+        self.best_score = 0
 
     def fit(self, X_in, Y_in):
         X = X_in.copy()
@@ -690,6 +713,7 @@ class GMM():
             clf.fit(X, Y)
 
             self.best_params = clf.best_params_
+            self.best_score = clf.best_score_
 
         return self
 

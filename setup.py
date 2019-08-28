@@ -9,7 +9,7 @@
 from setuptools import setup, find_packages
 
 
-version = '3.0.0'
+version = '3.0.1'
 
 setup(
     name='scikit_optim',

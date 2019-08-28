@@ -146,9 +146,7 @@ class GaussNB():
             pass
         else:
             parameters = {
-                'var_smoothing': np.concatenate(
-                    [np.geomspace(1e-12, 1e-9, 5), np.geomspace(1e-9, 1e-3, 10)]
-                )
+                'var_smoothing': np.geomspace(1e-9, 1e-3, 10)
             }
             gnb = GaussianNB()
             clf = GridSearchCV(

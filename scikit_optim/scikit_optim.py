@@ -25,7 +25,7 @@ from sklearn.tree import DecisionTreeClassifier
 
 if not sys.warnoptions:
     warnings.simplefilter('ignore')
-    os.environ['PYTHONWARNINGS'] = 'ignore'
+    os.environ['PYTHONWARNINGS'] = 'ignore'  # For ConvergenceWarning in CVs.
 
 done_list = None
 todo_list = None
@@ -47,7 +47,7 @@ class ModelSelector():
         self.best_model = None  # string, name of best model.
         self.best_params = None  # dict of best params for the best model.
 
-    def fit(self, X_in, y_in, X_te_in, y_te_in):
+    def fit(self, X_in, y_in, X_te_in=None, y_te_in=None):
         global done_list
         global todo_list
         global t_1
@@ -74,33 +74,30 @@ class ModelSelector():
             curr_model = model
             if model == 'GMM':
                 mod = GMM(acc_metric=self.acc_metric)
-                mod_score = round(mod.score(X_in, y_in, X_te_in, y_te_in) * 100,  2)
             elif model == 'LogRegress':
                 mod = LogRegress(acc_metric=self.acc_metric)
-                mod_score = round(mod.score(X_in, y_in, X_te_in, y_te_in) * 100,  2)
             elif model == 'DecTree':
                 mod = DecTree(acc_metric=self.acc_metric)
-                mod_score = round(mod.score(X_in, y_in, X_te_in, y_te_in) * 100,  2)
             elif model == 'RandForest':
                 mod = RandForest(acc_metric=self.acc_metric)
-                mod_score = round(mod.score(X_in, y_in, X_te_in, y_te_in) * 100,  2)
             elif model == 'SupportVC':
                 mod = SupportVC(acc_metric=self.acc_metric)
-                mod_score = round(mod.score(X_in, y_in, X_te_in, y_te_in) * 100,  2)
             elif model == 'kNN':
                 mod = kNN(acc_metric=self.acc_metric)
-                mod_score = round(mod.score(X_in, y_in, X_te_in, y_te_in) * 100,  2)
             elif model == 'GaussNB':
                 mod = GaussNB(acc_metric=self.acc_metric)
-                mod_score = round(mod.score(X_in, y_in, X_te_in, y_te_in) * 100,  2)
             elif model == 'MultiNB':
                 mod = MultiNB(acc_metric=self.acc_metric)
-                mod_score = round(mod.score(X_in, y_in, X_te_in, y_te_in) * 100,  2)
+
+            if X_te_in and y_te_in:
+                mod_score = round(mod.score(X_in, y_in, X_te_in, y_te_in) * 100,  2)  # OoS score case.
+            else:
+                mod_score = round(mod.fit(X_in, y_in).best_score * 100,  2)  # In-sample score case.
 
             summary_dict[model] = {
                 'time': time.strftime("%H:%M:%S",  time.gmtime(time.time()-t_0)),
                 self.acc_metric: mod_score
-            }
+            }  # Will still be defined for in-smaple case, but maybe not as meaningfully.
             summary_dict_cv[model] = {
                 'time': time.strftime("%H:%M:%S",  time.gmtime(time.time()-t_0)),
                 self.acc_metric: mod.best_score

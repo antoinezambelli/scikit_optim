@@ -303,8 +303,7 @@ class kNN():
             parameters = {
                 'n_neighbors': [
                     val
-                    for val in np.unique(np.round(np.geomspace(2, min(len(X)/100.0, 5)))).astype(int)
-                    if val % 2 == 1
+                    for val in [3, 5, 7, 9]
                 ]
             }
             knn = KNeighborsClassifier()
@@ -384,8 +383,8 @@ class SupportVC():
         else:
             parameters = {
                 'kernel': ['rbf', 'sigmoid', 'linear'],
-                'gamma': np.arange(0.1, 1.0, 0.1),
-                'C': np.geomspace(0.01, 100, num=10)
+                'gamma': np.arange(0.2, 1.0, 0.2),
+                'C': np.geomspace(0.01, 100, num=5)
             }
 
             svc = SVC()
@@ -468,9 +467,9 @@ class RandForest():
             pass
         else:
             parameters = {
-                'min_samples_split': np.unique(np.round(np.geomspace(2, min(len(X)/100.0, 25), num=10))).astype(int),
+                'min_samples_split': np.unique(np.round(np.geomspace(2, min(len(X)/100.0, 25), num=5))).astype(int),
                 'max_features': range(1, len(X_in.columns.values)),
-                'n_estimators': np.unique(np.round(np.geomspace(50, min(len(X)/100.0, 200), num=10))).astype(int)
+                'n_estimators': np.unique(np.round(np.geomspace(50, min(len(X)/100.0, 200), num=5))).astype(int)
             }
             rf = RandomForestClassifier()
             clf = RandomizedSearchCV(

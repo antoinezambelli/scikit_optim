@@ -382,7 +382,7 @@ class SupportVC():
             pass
         else:
             parameters = {
-                'kernel': ['rbf', 'sigmoid', 'linear'],
+                'kernel': ['linear'],#['rbf', 'sigmoid', 'linear'],
                 'gamma': np.arange(0.2, 1.0, 0.2),
                 'C': np.geomspace(0.01, 100, num=5)
             }
@@ -469,7 +469,7 @@ class RandForest():
             parameters = {
                 'min_samples_split': [2, 5, 8],
                 'max_features': ['auto', None],
-                'n_estimators': [50]
+                'n_estimators': [10, 50]
             }
             rf = RandomForestClassifier()
             clf = RandomizedSearchCV(

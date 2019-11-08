@@ -469,7 +469,7 @@ class RandForest():
             parameters = {
                 'min_samples_split': [2, 5, 8],
                 'max_features': ['auto', None],
-                'n_estimators': [50, 100, 150]
+                'n_estimators': [1]
             }
             rf = RandomForestClassifier()
             clf = RandomizedSearchCV(

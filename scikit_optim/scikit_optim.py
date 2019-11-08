@@ -382,7 +382,7 @@ class SupportVC():
             pass
         else:
             parameters = {
-                'kernel': ['rbf'],#['rbf', 'sigmoid', 'linear'],
+                'kernel': ['rbf', 'sigmoid', 'linear'],
                 'gamma': np.arange(0.2, 1.0, 0.2),
                 'C': np.geomspace(0.01, 100, num=5)
             }

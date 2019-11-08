@@ -467,9 +467,9 @@ class RandForest():
             pass
         else:
             parameters = {
-                'min_samples_split': np.unique(np.round(np.geomspace(2, min(len(X)/100.0, 25), num=5))).astype(int),
-                'max_features': range(1, len(X_in.columns.values)),
-                'n_estimators': np.unique(np.round(np.geomspace(50, min(len(X)/100.0, 200), num=5))).astype(int)
+                'min_samples_split': [2, 5, 8],
+                'max_features': ['auto', None],
+                'n_estimators': [50, 100, 150]
             }
             rf = RandomForestClassifier()
             clf = RandomizedSearchCV(

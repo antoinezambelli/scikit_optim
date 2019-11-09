@@ -570,7 +570,7 @@ class DecTree():
         else:
             parameters = {
                 'min_samples_split': np.unique(np.round(np.geomspace(2, min(len(X)/100.0, 25), num=10))).astype(int),
-                'max_features': ['auto', None]
+                'max_features': np.unique(np.round(np.geomspace(np.sqrt(X_in.shape[1]), X_in.shape[1], num=5))).astype(int)
             }
             dc = DecisionTreeClassifier()
             clf = RandomizedSearchCV(

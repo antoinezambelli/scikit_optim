@@ -50,6 +50,36 @@ def bucket_data(df, bucket_list=None):
 
 class ModelSelector():
     def __init__(self, acc_metric='accuracy_score', **kwargs):
+        '''
+        kwargs: *something* must be passed for each type or it will be ignored.
+        Can have just check, just ignore, just params, or any combination thereof.
+
+        kwarg inputs:
+            bucket: check, ignore, bucket_list.
+            min_max_scale: check, ignore, feature_range.
+            one_hot_encode: check, ignore, categories, bucket_list.
+            raw: check, ignore.
+
+        Example:
+        kwargs = {
+            'min_max_scale': {
+                'ignore': ['RandForest'],
+                'feature_range': (0, 0,5)
+            },
+            'one_hot_encode': {
+                'check': ['GaussNB', 'MultiNB'],
+                'categories': [
+                    list(range(1, 11)) if c not in ['multiworld'] else [0, 1]
+                    for c in df_train.columns
+                ],
+                'bucket_list': [(col, 10) for col in df.columns if col not in ['multiworld']]
+            },
+            raw: {
+                'check': ['LogRegress']
+            }
+        }
+        '''
+
         # Unpack the data preparation types and params.
         self.run_types = {
             'bucket': None,
@@ -61,82 +91,58 @@ class ModelSelector():
             self.run_types[k] = kwargs.get(k, None)  # Should contain check, ignore, any params needed.
 
         self.acc_metric = acc_metric  # scoring param to optimize on in CV.
-        self.summary_df = None  # performance and runtime for each model.
         self.summary_df_cv = None  # in-sample performance version - best CV-search score.
         self.models = None  # dict of model objects.
         self.params = None  # dict of all best params for all evaluated models.
         self.best_model = None  # string, name of best model.
         self.best_params = None  # dict of best params for the best model.
 
-    def fit(self, X_in, y_in, X_te_in=None, y_te_in=None):
+    def fit(self, X_in, y_in):
         # get lists organized and initialize dicts.
-        if not self.check_list:
-            self.check_list = [
-                'GMM', 'LogRegress', 'DecTree', 'RandForest',
-                'SupportVC', 'kNN', 'BGMM', 'GaussNB', 'MultiNB'
-            ]  # default is all models.
+        check_list = [
+            'GMM', 'LogRegress', 'DecTree', 'RandForest',
+            'SupportVC', 'kNN', 'GaussNB', 'MultiNB'
+        ]  # default is all models.
 
-        todo_list = [x for x in self.check_list if x not in self.ignore_list]  # list of models to evaluate.
+        # Pull out models to check and run types, drop ignore models, default to all models.
+        todo_list = [
+            (mod, k)
+            for k in self.run types
+            for mod in self.run_types[k].get('check', check_list)
+            if self.run_types[k] and mod not in self.run_types[k].get('ignore', [])
+        ]
 
-        # TODO: change todo_list to be list of tuples...so we can capture data_prep_type...
+        summary_dict = {mod_tup: 0 for mod_tup in todo_list}  # eventually turn into df.
+        summary_dict_cv = {mod_tup: 0 for mod_tup in todo_list}
+        model_dict = {mod_tup: 0 for mod_tup in todo_list}
+        params = {mod_tup: 0 for mod_tup in todo_list}  # stores params for each model.
 
-        # TODO: change these to be keyed by tuples.
-        summary_dict = {model: 0 for model in todo_list}  # eventually turn into df.
-        summary_dict_cv = {model: 0 for model in todo_list}
-        model_dict = {model: 0 for model in todo_list}
-        params = {model: 0 for model in todo_list}  # stores params for each model.
-
-        # loop over todo_list and score.
-        # TODO: need to unpack tuples below. model = tuple[0], data_prep_type = model[1]...
-        for model in todo_list:
+        # loop over todo_list and score. Innefficient because re-prepping X.
+        for model, prep_method in todo_list:
             t_0 = time.time()
 
-            # NOTE: could be cleaned by globals()[model](acc_metric=self.acc_metric) as a one-liner.
-            if model == 'GMM':
-                mod = GMM(acc_metric=self.acc_metric)
-            elif model == 'LogRegress':
-                mod = LogRegress(acc_metric=self.acc_metric)
-            elif model == 'DecTree':
-                mod = DecTree(acc_metric=self.acc_metric)
-            elif model == 'RandForest':
-                mod = RandForest(acc_metric=self.acc_metric)
-            elif model == 'SupportVC':
-                mod = SupportVC(acc_metric=self.acc_metric)
-            elif model == 'kNN':
-                mod = kNN(acc_metric=self.acc_metric)
-            elif model == 'GaussNB':
-                mod = GaussNB(acc_metric=self.acc_metric)
-            elif model == 'MultiNB':
-                mod = MultiNB(acc_metric=self.acc_metric)
+            mod = globals()[model](acc_metric=self.acc_metric)  # Instantiate model class.
 
-            if X_te_in and y_te_in:
-                mod_score = round(mod.score(X_in, y_in, X_te_in, y_te_in) * 100,  2)  # OoS score case.
-            else:
-                mod_score = round(mod.fit(X_in, y_in).best_score * 100,  2)  # In-sample score case.
+            # Prep data and fit model.
+            X = self.data_prep(prep_method, X_in)
+            mod_score = round(mod.fit(X, y_in).best_score * 100,  2)  # In-sample score case.
 
-            summary_dict[model] = {
-                'time': time.strftime("%H:%M:%S",  time.gmtime(time.time()-t_0)),
-                self.acc_metric: mod_score
-            }  # Will still be defined for in-smaple case, but maybe not as meaningfully.
-            summary_dict_cv[model] = {
+            # Store results
+            summary_dict_cv[(model, prep_method)] = {
                 'time': time.strftime("%H:%M:%S",  time.gmtime(time.time()-t_0)),
                 self.acc_metric: mod.best_score
             }
 
-            params[model] = mod.best_params
-            model_dict[model] = mod
+            params[(model, prep_method)] = mod.best_params
+            model_dict[(model, prep_method)] = mod
 
         # get df and sort based on perf. store bests.
-        summ_df = pd.DataFrame.from_dict(summary_dict, orient='index')
-        summ_df = summ_df.sort_values(by=[self.acc_metric], ascending=False)
-
         summ_df_cv = pd.DataFrame.from_dict(summary_dict_cv, orient='index')
         summ_df_cv = summ_df_cv.sort_values(by=[self.acc_metric], ascending=False)
 
-        self.best_model = summ_df.index[0]
+        self.best_model = summ_df_cv.index[0]
         self.best_params = params[self.best_model]
         self.params = params
-        self.summary_df = summ_df
         self.summary_df_cv = summ_df_cv
         self.models = model_dict
 
@@ -163,6 +169,8 @@ class ModelSelector():
                 categories=self.run_types[prep_method].get('categories', 'auto')
             )  # 'auto' is default argument for OHE, else take category list.
             X = enc.fit_transform(X).toarray()
+        elif prep_method == 'raw':
+            pass
 
         return X
 

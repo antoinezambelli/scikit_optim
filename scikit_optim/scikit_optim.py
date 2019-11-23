@@ -20,42 +20,56 @@ from sklearn.mixture import GaussianMixture
 from sklearn.model_selection import GridSearchCV, RandomizedSearchCV
 from sklearn.naive_bayes import GaussianNB, MultinomialNB
 from sklearn.neighbors import KNeighborsClassifier
+from sklearn.preprocessing import MinMaxScaler, OneHotEncoder
 from sklearn.svm import SVC
 from sklearn.tree import DecisionTreeClassifier
+
 
 if not sys.warnoptions:
     warnings.simplefilter('ignore')
     os.environ['PYTHONWARNINGS'] = 'ignore'  # For ConvergenceWarning in CVs.
 
-done_list = None
-todo_list = None
-t_1 = None
-t_0 = None
-curr_model = None
-
 CPU_USE = max(os.cpu_count() // 3, 1)  # 12 -> 4; 8 -> 2 (good for laptops).
 
+def bucket_data(df, bucket_list=None):
+    '''
+    Convenience method: this bins features.
+    '''
+    if not bucket_list:
+        bucket_list = [(col, 10) for col in df.columns]
+
+    for col, bin_amt in bucket_list:
+        df[col] = pd.cut(
+            df[col],
+            bins=bin_amt,
+            right=True,
+            labels=range(1, bin_amt + 1),
+        )
+    return df
+
+
 class ModelSelector():
-    def __init__(self, ignore=(), check=(), acc_metric='accuracy_score'):
-        self.ignore_list = list(ignore)  # list of strings, models to ignore.
-        self.check_list = list(check)  # list of strings, models to look at only.
+    def __init__(self, acc_metric='accuracy_score', **kwargs):
+        # Unpack the data preparation types and params.
+        self.run_types = {
+            'bucket': None,
+            'min_max_scale': None,
+            'one_hot_encode': None,
+            'raw': None
+        }
+        for k in self.run_types:
+            self.run_types[k] = kwargs.get(k, None)  # Should contain check, ignore, any params needed.
+
         self.acc_metric = acc_metric  # scoring param to optimize on in CV.
         self.summary_df = None  # performance and runtime for each model.
         self.summary_df_cv = None  # in-sample performance version - best CV-search score.
-        self.models = None  # dict of model objects
+        self.models = None  # dict of model objects.
         self.params = None  # dict of all best params for all evaluated models.
         self.best_model = None  # string, name of best model.
         self.best_params = None  # dict of best params for the best model.
 
     def fit(self, X_in, y_in, X_te_in=None, y_te_in=None):
-        global done_list
-        global todo_list
-        global t_1
-        global t_0
-        global curr_model
-
         # get lists organized and initialize dicts.
-        done_list = []
         if not self.check_list:
             self.check_list = [
                 'GMM', 'LogRegress', 'DecTree', 'RandForest',
@@ -63,15 +77,21 @@ class ModelSelector():
             ]  # default is all models.
 
         todo_list = [x for x in self.check_list if x not in self.ignore_list]  # list of models to evaluate.
+
+        # TODO: change todo_list to be list of tuples...so we can capture data_prep_type...
+
+        # TODO: change these to be keyed by tuples.
         summary_dict = {model: 0 for model in todo_list}  # eventually turn into df.
         summary_dict_cv = {model: 0 for model in todo_list}
         model_dict = {model: 0 for model in todo_list}
         params = {model: 0 for model in todo_list}  # stores params for each model.
 
         # loop over todo_list and score.
+        # TODO: need to unpack tuples below. model = tuple[0], data_prep_type = model[1]...
         for model in todo_list:
             t_0 = time.time()
-            curr_model = model
+
+            # NOTE: could be cleaned by globals()[model](acc_metric=self.acc_metric) as a one-liner.
             if model == 'GMM':
                 mod = GMM(acc_metric=self.acc_metric)
             elif model == 'LogRegress':
@@ -106,8 +126,6 @@ class ModelSelector():
             params[model] = mod.best_params
             model_dict[model] = mod
 
-            done_list.append(model)
-
         # get df and sort based on perf. store bests.
         summ_df = pd.DataFrame.from_dict(summary_dict, orient='index')
         summ_df = summ_df.sort_values(by=[self.acc_metric], ascending=False)
@@ -123,6 +141,30 @@ class ModelSelector():
         self.models = model_dict
 
         return self
+
+    def data_prep(self, prep_method, X_in):
+        '''
+        prep_method presumably gotten from MS.fit() loop or best_mod in external script.
+        '''
+
+        X = X_in.copy()  # Assumes already shuffled if needed.
+
+        if prep_method == 'bucket':
+            X = bucket_data(X, self.run_types[prep_method].get('bucket_list', None))
+            X = X.values.astype(float)  # Tensorflow fails on ints.
+        elif prep_method == 'min_max_scale':
+            mms = MinMaxScaler(
+                feature_range=self.run_types[prep_method].get('feature_range', (0, 1))
+            )
+            X = mms.fit_transform(X)
+        elif prep_method == 'one_hot_encode':
+            X = bucket_data(X, self.run_types[prep_method].get('bucket_list', None))
+            enc = OneHotEncoder(
+                categories=self.run_types[prep_method].get('categories', 'auto')
+            )  # 'auto' is default argument for OHE, else take category list.
+            X = enc.fit_transform(X).toarray()
+
+        return X
 
 
 class GaussNB():

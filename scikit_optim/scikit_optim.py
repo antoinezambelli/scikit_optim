@@ -49,7 +49,7 @@ def bucket_data(df, bucket_list=None):
 
 
 class ModelSelector():
-    def __init__(self, acc_metric='accuracy_score', **kwargs):
+    def __init__(self, acc_metric='accuracy_score', num_cv=5, **kwargs):
         '''
         kwargs: *something* must be passed for each type or it will be ignored.
         Can have just check, just ignore, just params, or any combination thereof.
@@ -91,6 +91,8 @@ class ModelSelector():
             self.run_types[k] = kwargs.get(k, None)  # Should contain check, ignore, any params needed.
 
         self.acc_metric = acc_metric  # scoring param to optimize on in CV.
+        self.num_cv = num_cv
+
         self.summary_df_cv = None  # in-sample performance version - best CV-search score.
         self.models = None  # dict of model objects.
         self.params = None  # dict of all best params for all evaluated models.
@@ -121,7 +123,7 @@ class ModelSelector():
         for model, prep_method in todo_list:
             t_0 = time.time()
 
-            mod = globals()[model](acc_metric=self.acc_metric)  # Instantiate model class.
+            mod = globals()[model](acc_metric=self.acc_metric, num_cv=self.num_cv)  # Instantiate model class.
 
             # Prep data and fit model.
             X = self.data_prep(prep_method, X_in)
@@ -176,7 +178,7 @@ class ModelSelector():
 
 
 class GaussNB():
-    def __init__(self, acc_metric='accuracy_score'):
+    def __init__(self, acc_metric='accuracy_score', num_cv=5):
         self.y_pred = None
         self.y_pred_prob = None
         self.label_prob = None
@@ -184,6 +186,7 @@ class GaussNB():
         self.accuracy_score = None
         self.best_params = None
         self.best_score = 0
+        self.num_cv = num_cv
 
     def fit(self, X_in, Y_in):
         X = X_in.copy()
@@ -201,7 +204,7 @@ class GaussNB():
                 n_jobs=CPU_USE,
                 param_grid=parameters,
                 scoring=self.acc_metric.split('_score')[0],
-                cv=5
+                cv=self.num_cv
             )
             clf.fit(X, Y)
 
@@ -255,7 +258,7 @@ class GaussNB():
 
 
 class MultiNB():
-    def __init__(self, acc_metric='accuracy_score'):
+    def __init__(self, acc_metric='accuracy_score', num_cv=5):
         self.y_pred = None
         self.y_pred_prob = None
         self.label_prob = None
@@ -263,6 +266,7 @@ class MultiNB():
         self.accuracy_score = None
         self.best_params = None
         self.best_score = 0
+        self.num_cv = num_cv
 
     def fit(self, X_in, Y_in):
         X = X_in.copy()
@@ -280,7 +284,7 @@ class MultiNB():
                 n_jobs=CPU_USE,
                 param_grid=parameters,
                 scoring=self.acc_metric.split('_score')[0],
-                cv=5
+                cv=self.num_cv
             )
             clf.fit(X, Y)
 
@@ -334,7 +338,7 @@ class MultiNB():
 
 
 class kNN():
-    def __init__(self, best_params=None, acc_metric='accuracy_score'):
+    def __init__(self, best_params=None, acc_metric='accuracy_score', num_cv=5):
         self.best_params = best_params
         self.y_pred = None
         self.y_pred_prob = None
@@ -342,6 +346,7 @@ class kNN():
         self.acc_metric = acc_metric
         self.accuracy_score = None
         self.best_score = 0
+        self.num_cv = num_cv
 
     def fit(self, X_in, Y_in):
         X = X_in.copy()
@@ -362,7 +367,7 @@ class kNN():
                 n_jobs=CPU_USE,
                 param_grid=parameters,
                 scoring=self.acc_metric.split('_score')[0],
-                cv=5
+                cv=self.num_cv
             )
             clf.fit(X, Y)
 
@@ -415,7 +420,7 @@ class kNN():
 
 
 class SupportVC():
-    def __init__(self, best_params=None, acc_metric='accuracy_score'):
+    def __init__(self, best_params=None, acc_metric='accuracy_score', num_cv=5):
         self.best_params = best_params
         self.y_pred = None
         self.y_pred_prob = None
@@ -423,6 +428,7 @@ class SupportVC():
         self.acc_metric = acc_metric
         self.accuracy_score = None
         self.best_score = 0
+        self.num_cv = num_cv
 
     def fit(self, X_in, Y_in):
         X = X_in.copy()
@@ -438,7 +444,7 @@ class SupportVC():
             }
 
             svc = SVC()
-            clf = GridSearchCV(svc, n_jobs=CPU_USE, param_grid=parameters, scoring=self.acc_metric.split('_score')[0], cv=5)
+            clf = GridSearchCV(svc, n_jobs=CPU_USE, param_grid=parameters, scoring=self.acc_metric.split('_score')[0], cv=self.num_cv)
             clf.fit(X, Y)
 
             self.best_params = clf.best_params_
@@ -499,7 +505,7 @@ class SupportVC():
 
 
 class RandForest():
-    def __init__(self, num_iter=200, best_params=None, acc_metric='accuracy_score'):
+    def __init__(self, num_iter=200, best_params=None, acc_metric='accuracy_score', num_cv=5):
         self.best_params = best_params
         self.y_pred = None
         self.y_pred_prob = None
@@ -508,6 +514,7 @@ class RandForest():
         self.accuracy_score = None
         self.num_iter = num_iter
         self.best_score = 0
+        self.num_cv = num_cv
 
     def fit(self, X_in, Y_in):
         X = X_in.copy()
@@ -528,7 +535,7 @@ class RandForest():
                 param_distributions=parameters,
                 scoring=self.acc_metric.split('_score')[0],
                 n_iter=self.num_iter,
-                cv=5
+                cv=self.num_cv
             )
 
             try:
@@ -539,7 +546,7 @@ class RandForest():
                     n_jobs=CPU_USE,
                     param_grid=parameters,
                     scoring=self.acc_metric.split('_score')[0],
-                    cv=5
+                    cv=self.num_cv
                 )  # triggers if space is < num_iter.
                 clf.fit(X, Y)
 
@@ -601,7 +608,7 @@ class RandForest():
 
 
 class DecTree():
-    def __init__(self, num_iter=2500, best_params=None, acc_metric='accuracy_score'):
+    def __init__(self, num_iter=2500, best_params=None, acc_metric='accuracy_score', num_cv=5):
         self.best_params = best_params
         self.y_pred = None
         self.y_pred_prob = None
@@ -610,6 +617,7 @@ class DecTree():
         self.accuracy_score = None
         self.num_iter = num_iter
         self.best_score = 0
+        self.num_cv = num_cv
 
     def fit(self, X_in, Y_in):
         X = X_in.copy()
@@ -629,7 +637,7 @@ class DecTree():
                 param_distributions=parameters,
                 scoring=self.acc_metric.split('_score')[0],
                 n_iter=self.num_iter,
-                cv=5
+                cv=self.num_cv
             )
 
             try:
@@ -640,7 +648,7 @@ class DecTree():
                     n_jobs=CPU_USE,
                     param_grid=parameters,
                     scoring=self.acc_metric.split('_score')[0],
-                    cv=5
+                    cv=self.num_cv
                 )
                 clf.fit(X, Y)
 
@@ -700,7 +708,7 @@ class DecTree():
 
 
 class LogRegress():
-    def __init__(self, num_iter=300, best_params=None, acc_metric='accuracy_score'):
+    def __init__(self, num_iter=300, best_params=None, acc_metric='accuracy_score', num_cv=5):
         self.best_params = best_params
         self.y_pred = None
         self.y_pred_prob = None
@@ -709,6 +717,7 @@ class LogRegress():
         self.accuracy_score = None
         self.num_iter = num_iter
         self.best_score = 0
+        self.num_cv = num_cv
 
     def fit(self, X_in, Y_in):
         X = X_in.copy()
@@ -726,7 +735,7 @@ class LogRegress():
                 n_jobs=CPU_USE,
                 param_grid=parameters,
                 scoring=self.acc_metric.split('_score')[0],
-                cv=5
+                cv=self.num_cv
             )
             clf.fit(X, Y)
 
@@ -783,12 +792,13 @@ class LogRegress():
 
 
 class GMM():
-    def __init__(self, best_params=None, acc_metric='accuracy_score'):
+    def __init__(self, best_params=None, acc_metric='accuracy_score', num_cv=5):
         self.best_params = best_params
         self.y_pred = None
         self.acc_metric = acc_metric
         self.accuracy_score = None
         self.best_score = 0
+        self.num_cv = num_cv
 
     def fit(self, X_in, Y_in):
         X = X_in.copy()
@@ -808,7 +818,7 @@ class GMM():
                 n_jobs=CPU_USE,
                 param_grid=parameters,
                 scoring=self.acc_metric.split('_score')[0],
-                cv=5
+                cv=self.num_cv
             )
             clf.fit(X, Y)
 

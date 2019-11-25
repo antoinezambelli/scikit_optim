@@ -20,113 +20,165 @@ from sklearn.mixture import GaussianMixture
 from sklearn.model_selection import GridSearchCV, RandomizedSearchCV
 from sklearn.naive_bayes import GaussianNB, MultinomialNB
 from sklearn.neighbors import KNeighborsClassifier
+from sklearn.preprocessing import MinMaxScaler, OneHotEncoder
 from sklearn.svm import SVC
 from sklearn.tree import DecisionTreeClassifier
+
 
 if not sys.warnoptions:
     warnings.simplefilter('ignore')
     os.environ['PYTHONWARNINGS'] = 'ignore'  # For ConvergenceWarning in CVs.
 
-done_list = None
-todo_list = None
-t_1 = None
-t_0 = None
-curr_model = None
-
 CPU_USE = max(os.cpu_count() // 3, 1)  # 12 -> 4; 8 -> 2 (good for laptops).
 
+def bucket_data(df, bucket_list=None):
+    '''
+    Convenience method: this bins features.
+    '''
+    if not bucket_list:
+        bucket_list = [(col, 10) for col in df.columns]
+
+    for col, bin_amt in bucket_list:
+        df[col] = pd.cut(
+            df[col],
+            bins=bin_amt,
+            right=True,
+            labels=range(1, bin_amt + 1),
+        )
+    return df
+
+
 class ModelSelector():
-    def __init__(self, ignore=(), check=(), acc_metric='accuracy_score'):
-        self.ignore_list = list(ignore)  # list of strings, models to ignore.
-        self.check_list = list(check)  # list of strings, models to look at only.
+    def __init__(self, acc_metric='accuracy_score', num_cv=5, **kwargs):
+        '''
+        kwargs: *something* must be passed for each type or it will be ignored.
+        Can have just check, just ignore, just params, or any combination thereof.
+
+        kwarg inputs:
+            bucket: check, ignore, bucket_list.
+            min_max_scale: check, ignore, feature_range.
+            one_hot_encode: check, ignore, categories, bucket_list.
+            raw: check, ignore.
+
+        Example:
+        kwargs = {
+            'min_max_scale': {
+                'ignore': ['RandForest'],
+                'feature_range': (0, 0,5)
+            },
+            'one_hot_encode': {
+                'check': ['GaussNB', 'MultiNB'],
+                'categories': [
+                    list(range(1, 11)) if c not in ['multiworld'] else [0, 1]
+                    for c in df_train.columns
+                ],
+                'bucket_list': [(col, 10) for col in df.columns if col not in ['multiworld']]
+            },
+            raw: {
+                'check': ['LogRegress']
+            }
+        }
+        '''
+
+        # Unpack the data preparation types and params.
+        self.run_types = {
+            'bucket': None,
+            'min_max_scale': None,
+            'one_hot_encode': None,
+            'raw': None
+        }
+        for k in self.run_types:
+            self.run_types[k] = kwargs.get(k, None)  # Should contain check, ignore, any params needed.
+
         self.acc_metric = acc_metric  # scoring param to optimize on in CV.
-        self.summary_df = None  # performance and runtime for each model.
+        self.num_cv = num_cv
+
         self.summary_df_cv = None  # in-sample performance version - best CV-search score.
-        self.models = None  # dict of model objects
+        self.models = None  # dict of model objects.
         self.params = None  # dict of all best params for all evaluated models.
         self.best_model = None  # string, name of best model.
         self.best_params = None  # dict of best params for the best model.
 
-    def fit(self, X_in, y_in, X_te_in=None, y_te_in=None):
-        global done_list
-        global todo_list
-        global t_1
-        global t_0
-        global curr_model
-
+    def fit(self, X_in, y_in):
         # get lists organized and initialize dicts.
-        done_list = []
-        if not self.check_list:
-            self.check_list = [
-                'GMM', 'LogRegress', 'DecTree', 'RandForest',
-                'SupportVC', 'kNN', 'BGMM', 'GaussNB', 'MultiNB'
-            ]  # default is all models.
+        check_list = [
+            'GMM', 'LogRegress', 'DecTree', 'RandForest',
+            'SupportVC', 'kNN', 'GaussNB', 'MultiNB'
+        ]  # default is all models.
 
-        todo_list = [x for x in self.check_list if x not in self.ignore_list]  # list of models to evaluate.
-        summary_dict = {model: 0 for model in todo_list}  # eventually turn into df.
-        summary_dict_cv = {model: 0 for model in todo_list}
-        model_dict = {model: 0 for model in todo_list}
-        params = {model: 0 for model in todo_list}  # stores params for each model.
+        # Pull out models to check and run types, drop ignore models, default to all models.
+        todo_list = [
+            (mod, k)
+            for k in self.run types
+            for mod in self.run_types[k].get('check', check_list)
+            if self.run_types[k] and mod not in self.run_types[k].get('ignore', [])
+        ]
 
-        # loop over todo_list and score.
-        for model in todo_list:
+        summary_dict = {mod_tup: 0 for mod_tup in todo_list}  # eventually turn into df.
+        summary_dict_cv = {mod_tup: 0 for mod_tup in todo_list}
+        model_dict = {mod_tup: 0 for mod_tup in todo_list}
+        params = {mod_tup: 0 for mod_tup in todo_list}  # stores params for each model.
+
+        # loop over todo_list and score. Innefficient because re-prepping X.
+        for model, prep_method in todo_list:
             t_0 = time.time()
-            curr_model = model
-            if model == 'GMM':
-                mod = GMM(acc_metric=self.acc_metric)
-            elif model == 'LogRegress':
-                mod = LogRegress(acc_metric=self.acc_metric)
-            elif model == 'DecTree':
-                mod = DecTree(acc_metric=self.acc_metric)
-            elif model == 'RandForest':
-                mod = RandForest(acc_metric=self.acc_metric)
-            elif model == 'SupportVC':
-                mod = SupportVC(acc_metric=self.acc_metric)
-            elif model == 'kNN':
-                mod = kNN(acc_metric=self.acc_metric)
-            elif model == 'GaussNB':
-                mod = GaussNB(acc_metric=self.acc_metric)
-            elif model == 'MultiNB':
-                mod = MultiNB(acc_metric=self.acc_metric)
 
-            if X_te_in and y_te_in:
-                mod_score = round(mod.score(X_in, y_in, X_te_in, y_te_in) * 100,  2)  # OoS score case.
-            else:
-                mod_score = round(mod.fit(X_in, y_in).best_score * 100,  2)  # In-sample score case.
+            mod = globals()[model](acc_metric=self.acc_metric, num_cv=self.num_cv)  # Instantiate model class.
 
-            summary_dict[model] = {
-                'time': time.strftime("%H:%M:%S",  time.gmtime(time.time()-t_0)),
-                self.acc_metric: mod_score
-            }  # Will still be defined for in-smaple case, but maybe not as meaningfully.
-            summary_dict_cv[model] = {
+            # Prep data and fit model.
+            X = self.data_prep(prep_method, X_in)
+            mod_score = round(mod.fit(X, y_in).best_score * 100,  2)  # In-sample score case.
+
+            # Store results
+            summary_dict_cv[(model, prep_method)] = {
                 'time': time.strftime("%H:%M:%S",  time.gmtime(time.time()-t_0)),
                 self.acc_metric: mod.best_score
             }
 
-            params[model] = mod.best_params
-            model_dict[model] = mod
-
-            done_list.append(model)
+            params[(model, prep_method)] = mod.best_params
+            model_dict[(model, prep_method)] = mod
 
         # get df and sort based on perf. store bests.
-        summ_df = pd.DataFrame.from_dict(summary_dict, orient='index')
-        summ_df = summ_df.sort_values(by=[self.acc_metric], ascending=False)
-
         summ_df_cv = pd.DataFrame.from_dict(summary_dict_cv, orient='index')
         summ_df_cv = summ_df_cv.sort_values(by=[self.acc_metric], ascending=False)
 
-        self.best_model = summ_df.index[0]
+        self.best_model = summ_df_cv.index[0]
         self.best_params = params[self.best_model]
         self.params = params
-        self.summary_df = summ_df
         self.summary_df_cv = summ_df_cv
         self.models = model_dict
 
         return self
 
+    def data_prep(self, prep_method, X_in):
+        '''
+        prep_method presumably gotten from MS.fit() loop or best_mod in external script.
+        '''
+
+        X = X_in.copy()  # Assumes already shuffled if needed.
+
+        if prep_method == 'bucket':
+            X = bucket_data(X, self.run_types[prep_method].get('bucket_list', None))
+            X = X.values.astype(float)  # Tensorflow fails on ints.
+        elif prep_method == 'min_max_scale':
+            mms = MinMaxScaler(
+                feature_range=self.run_types[prep_method].get('feature_range', (0, 1))
+            )
+            X = mms.fit_transform(X)
+        elif prep_method == 'one_hot_encode':
+            X = bucket_data(X, self.run_types[prep_method].get('bucket_list', None))
+            enc = OneHotEncoder(
+                categories=self.run_types[prep_method].get('categories', 'auto')
+            )  # 'auto' is default argument for OHE, else take category list.
+            X = enc.fit_transform(X).toarray()
+        elif prep_method == 'raw':
+            pass
+
+        return X
+
 
 class GaussNB():
-    def __init__(self, acc_metric='accuracy_score'):
+    def __init__(self, acc_metric='accuracy_score', num_cv=5):
         self.y_pred = None
         self.y_pred_prob = None
         self.label_prob = None
@@ -134,6 +186,7 @@ class GaussNB():
         self.accuracy_score = None
         self.best_params = None
         self.best_score = 0
+        self.num_cv = num_cv
 
     def fit(self, X_in, Y_in):
         X = X_in.copy()
@@ -151,7 +204,7 @@ class GaussNB():
                 n_jobs=CPU_USE,
                 param_grid=parameters,
                 scoring=self.acc_metric.split('_score')[0],
-                cv=5
+                cv=self.num_cv
             )
             clf.fit(X, Y)
 
@@ -205,7 +258,7 @@ class GaussNB():
 
 
 class MultiNB():
-    def __init__(self, acc_metric='accuracy_score'):
+    def __init__(self, acc_metric='accuracy_score', num_cv=5):
         self.y_pred = None
         self.y_pred_prob = None
         self.label_prob = None
@@ -213,6 +266,7 @@ class MultiNB():
         self.accuracy_score = None
         self.best_params = None
         self.best_score = 0
+        self.num_cv = num_cv
 
     def fit(self, X_in, Y_in):
         X = X_in.copy()
@@ -230,7 +284,7 @@ class MultiNB():
                 n_jobs=CPU_USE,
                 param_grid=parameters,
                 scoring=self.acc_metric.split('_score')[0],
-                cv=5
+                cv=self.num_cv
             )
             clf.fit(X, Y)
 
@@ -284,7 +338,7 @@ class MultiNB():
 
 
 class kNN():
-    def __init__(self, best_params=None, acc_metric='accuracy_score'):
+    def __init__(self, best_params=None, acc_metric='accuracy_score', num_cv=5):
         self.best_params = best_params
         self.y_pred = None
         self.y_pred_prob = None
@@ -292,6 +346,7 @@ class kNN():
         self.acc_metric = acc_metric
         self.accuracy_score = None
         self.best_score = 0
+        self.num_cv = num_cv
 
     def fit(self, X_in, Y_in):
         X = X_in.copy()
@@ -312,7 +367,7 @@ class kNN():
                 n_jobs=CPU_USE,
                 param_grid=parameters,
                 scoring=self.acc_metric.split('_score')[0],
-                cv=5
+                cv=self.num_cv
             )
             clf.fit(X, Y)
 
@@ -365,7 +420,7 @@ class kNN():
 
 
 class SupportVC():
-    def __init__(self, best_params=None, acc_metric='accuracy_score'):
+    def __init__(self, best_params=None, acc_metric='accuracy_score', num_cv=5):
         self.best_params = best_params
         self.y_pred = None
         self.y_pred_prob = None
@@ -373,6 +428,7 @@ class SupportVC():
         self.acc_metric = acc_metric
         self.accuracy_score = None
         self.best_score = 0
+        self.num_cv = num_cv
 
     def fit(self, X_in, Y_in):
         X = X_in.copy()
@@ -388,7 +444,7 @@ class SupportVC():
             }
 
             svc = SVC()
-            clf = GridSearchCV(svc, n_jobs=CPU_USE, param_grid=parameters, scoring=self.acc_metric.split('_score')[0], cv=5)
+            clf = GridSearchCV(svc, n_jobs=CPU_USE, param_grid=parameters, scoring=self.acc_metric.split('_score')[0], cv=self.num_cv)
             clf.fit(X, Y)
 
             self.best_params = clf.best_params_
@@ -449,7 +505,7 @@ class SupportVC():
 
 
 class RandForest():
-    def __init__(self, num_iter=200, best_params=None, acc_metric='accuracy_score'):
+    def __init__(self, num_iter=200, best_params=None, acc_metric='accuracy_score', num_cv=5):
         self.best_params = best_params
         self.y_pred = None
         self.y_pred_prob = None
@@ -458,6 +514,7 @@ class RandForest():
         self.accuracy_score = None
         self.num_iter = num_iter
         self.best_score = 0
+        self.num_cv = num_cv
 
     def fit(self, X_in, Y_in):
         X = X_in.copy()
@@ -478,7 +535,7 @@ class RandForest():
                 param_distributions=parameters,
                 scoring=self.acc_metric.split('_score')[0],
                 n_iter=self.num_iter,
-                cv=5
+                cv=self.num_cv
             )
 
             try:
@@ -489,7 +546,7 @@ class RandForest():
                     n_jobs=CPU_USE,
                     param_grid=parameters,
                     scoring=self.acc_metric.split('_score')[0],
-                    cv=5
+                    cv=self.num_cv
                 )  # triggers if space is < num_iter.
                 clf.fit(X, Y)
 
@@ -551,7 +608,7 @@ class RandForest():
 
 
 class DecTree():
-    def __init__(self, num_iter=2500, best_params=None, acc_metric='accuracy_score'):
+    def __init__(self, num_iter=2500, best_params=None, acc_metric='accuracy_score', num_cv=5):
         self.best_params = best_params
         self.y_pred = None
         self.y_pred_prob = None
@@ -560,6 +617,7 @@ class DecTree():
         self.accuracy_score = None
         self.num_iter = num_iter
         self.best_score = 0
+        self.num_cv = num_cv
 
     def fit(self, X_in, Y_in):
         X = X_in.copy()
@@ -579,7 +637,7 @@ class DecTree():
                 param_distributions=parameters,
                 scoring=self.acc_metric.split('_score')[0],
                 n_iter=self.num_iter,
-                cv=5
+                cv=self.num_cv
             )
 
             try:
@@ -590,7 +648,7 @@ class DecTree():
                     n_jobs=CPU_USE,
                     param_grid=parameters,
                     scoring=self.acc_metric.split('_score')[0],
-                    cv=5
+                    cv=self.num_cv
                 )
                 clf.fit(X, Y)
 
@@ -650,7 +708,7 @@ class DecTree():
 
 
 class LogRegress():
-    def __init__(self, num_iter=300, best_params=None, acc_metric='accuracy_score'):
+    def __init__(self, num_iter=300, best_params=None, acc_metric='accuracy_score', num_cv=5):
         self.best_params = best_params
         self.y_pred = None
         self.y_pred_prob = None
@@ -659,6 +717,7 @@ class LogRegress():
         self.accuracy_score = None
         self.num_iter = num_iter
         self.best_score = 0
+        self.num_cv = num_cv
 
     def fit(self, X_in, Y_in):
         X = X_in.copy()
@@ -676,7 +735,7 @@ class LogRegress():
                 n_jobs=CPU_USE,
                 param_grid=parameters,
                 scoring=self.acc_metric.split('_score')[0],
-                cv=5
+                cv=self.num_cv
             )
             clf.fit(X, Y)
 
@@ -733,12 +792,13 @@ class LogRegress():
 
 
 class GMM():
-    def __init__(self, best_params=None, acc_metric='accuracy_score'):
+    def __init__(self, best_params=None, acc_metric='accuracy_score', num_cv=5):
         self.best_params = best_params
         self.y_pred = None
         self.acc_metric = acc_metric
         self.accuracy_score = None
         self.best_score = 0
+        self.num_cv = num_cv
 
     def fit(self, X_in, Y_in):
         X = X_in.copy()
@@ -758,7 +818,7 @@ class GMM():
                 n_jobs=CPU_USE,
                 param_grid=parameters,
                 scoring=self.acc_metric.split('_score')[0],
-                cv=5
+                cv=self.num_cv
             )
             clf.fit(X, Y)
 

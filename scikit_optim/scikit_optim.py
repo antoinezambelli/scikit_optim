@@ -109,7 +109,7 @@ class ModelSelector():
         # Pull out models to check and run types, drop ignore models, default to all models.
         todo_list = [
             (mod, k)
-            for k in self.run types
+            for k in self.run_types
             for mod in self.run_types[k].get('check', check_list)
             if self.run_types[k] and mod not in self.run_types[k].get('ignore', [])
         ]

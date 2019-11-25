@@ -81,13 +81,8 @@ class ModelSelector():
         '''
 
         # Unpack the data preparation types and params.
-        self.run_types = {
-            'bucket': None,
-            'min_max_scale': None,
-            'one_hot_encode': None,
-            'raw': None
-        }
-        for k in self.run_types:
+        self.run_types = {}
+        for k in kwargs:
             self.run_types[k] = kwargs.get(k, None)  # Should contain check, ignore, any params needed.
 
         self.acc_metric = acc_metric  # scoring param to optimize on in CV.

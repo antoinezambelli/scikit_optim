@@ -29,7 +29,8 @@ if not sys.warnoptions:
     warnings.simplefilter('ignore')
     os.environ['PYTHONWARNINGS'] = 'ignore'  # For ConvergenceWarning in CVs.
 
-CPU_USE = max(os.cpu_count() // 3, 1)  # 12 -> 4; 8 -> 2 (good for laptops).
+CPU_ALLOC = {24: 8, 12: 4, 8: 2, 4: 2}  # 8->2 good for laptops, 4->2 for RPis.
+CPU_USE = CPU_ALLOC.get(os.cpu_count(), 1)
 
 def bucket_data(df, bucket_list=None):
     '''

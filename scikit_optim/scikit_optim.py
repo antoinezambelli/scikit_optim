@@ -29,7 +29,7 @@ if not sys.warnoptions:
     warnings.simplefilter('ignore')
     os.environ['PYTHONWARNINGS'] = 'ignore'  # For ConvergenceWarning in CVs.
 
-CPU_ALLOC = {24: 8, 12: 4, 8: 2, 4: 3}  # 8->2 good for laptops, 4->2 for RPis.
+CPU_ALLOC = {24: 8, 12: 4, 8: 2, 4: 3}  # 8->2 good for laptops, 4->3 for RPis.
 CPU_USE = CPU_ALLOC.get(os.cpu_count(), 1)
 
 def bucket_data(df, bucket_list=None):
@@ -89,13 +89,13 @@ class ModelSelector():
         self.acc_metric = acc_metric  # scoring param to optimize on in CV.
         self.num_cv = num_cv
 
-        self.summary_df_cv = None  # in-sample performance version - best CV-search score.
+        self.summary_df_cv = None  # best CV-search score.
         self.models = None  # dict of model objects.
         self.params = None  # dict of all best params for all evaluated models.
         self.best_model = None  # string, name of best model.
         self.best_params = None  # dict of best params for the best model.
 
-    def fit(self, X_in, y_in):
+    def fit(self, X_in, y_in, X_val_in=None, y_val_in=None):
         # get lists organized and initialize dicts.
         check_list = [
             'GMM', 'LogRegress', 'DecTree', 'RandForest',
@@ -110,9 +110,8 @@ class ModelSelector():
             if self.run_types[k] and mod not in self.run_types[k].get('ignore', [])
         ]
 
-        summary_dict = {mod_tup: 0 for mod_tup in todo_list}  # eventually turn into df.
-        summary_dict_cv = {mod_tup: 0 for mod_tup in todo_list}
-        model_dict = {mod_tup: 0 for mod_tup in todo_list}
+        summary_dict_cv = {mod_tup: 0 for mod_tup in todo_list}  # eventually turn into df.
+        model_dict = {mod_tup: 0 for mod_tup in todo_list}  # dict of model objects.
         params = {mod_tup: 0 for mod_tup in todo_list}  # stores params for each model.
 
         # loop over todo_list and score. Innefficient because re-prepping X.
@@ -123,7 +122,11 @@ class ModelSelector():
 
             # Prep data and fit model.
             X = self.data_prep(prep_method, X_in)
-            mod_score = round(mod.fit(X, y_in).best_score * 100,  2)  # In-sample score case.
+            if X_val_in:  # OoS score case.
+                X_val = self.data_prep(prep_method, X_val_in)
+                mod_score  = round(mod.score(X, y_in, X_val, y_val_in) * 100,  2)
+            else:  # In-sample score case.
+                mod_score = round(mod.fit(X, y_in).best_score * 100,  2)
 
             # Store results
             summary_dict_cv[(model, prep_method)] = {

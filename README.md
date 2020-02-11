@@ -7,6 +7,65 @@ This is a convenience library for use with `scikit` supervised learning algorith
 
 It also includes a `ModelSelector` which will run comparisons of all models - returning runtimes and accuracy scores for different models.
 
+It also includes data prep functionality (minmax scaling, bucketing, normalizing) and will compare those methods as well.
+
+## Usage
+Typical usage of `ModelSelector`:
+
+```
+ms_params = {
+    'bucket': {
+        'check': CHECK,
+        'bucket_list': [(col, 10) for col in df_train.columns if col not in ['my_col']]
+    },
+    'min_max_scale': {
+        'check': ['MultiNB', 'GaussNB', 'DecTree']
+    },
+    'one_hot_encode': {
+        'check': CHECK,
+        'categories': [
+            list(range(1, 11)) if c not in ['my_col'] else [0, 1]
+            for c in df_train.columns
+        ],
+        'bucket_list': [(col, 10) for col in df_train.columns if col not in ['my_col']]
+    }
+}  # kwargs for scikit_optim v4.0.
+
+# Fit MS with params on df_train, y_train.
+model_sel = ModelSelector(acc_metric='precision_score', num_cv=5, **ms_params)
+model_sel.fit(df_train, y_train)
+
+# Prep the data sets according to best performing model + data prep combo.
+X_train = model_sel.data_prep(
+    model_sel.summary_df_cv.index[0][1],
+    df_train
+)
+X_test = model_sel.data_prep(
+    model_sel.summary_df_cv.index[0][1],
+    df_test
+)
+
+# Predict X_test using the fitted best model.
+best_mod = model_sel.models[model_sel.summary_df_cv.index[0]]
+res = {
+    'y_pred': best_mod.predict(
+        X_train,
+        y_train,
+        X_test,
+    ),
+    'y_pred_prob': best_mod.predict_proba(
+        X_train,
+        y_train,
+        X_test,
+    )
+}
+```
+
+Note that if no validation sets are explicitly passed in, then the library will use training performance to rank models (as in the example above).
+
+
+
+DOCS BELOW THIS POINT ARE PARTIALLY OUTDATED (but can still give an idea of what the library does).
 ## Usage
 
 Assume the user will split their dataset into training and test sets - `X_tr`/`Y_tr` and `X_te`/`Y_te`, respectively.

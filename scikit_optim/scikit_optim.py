@@ -172,7 +172,8 @@ class ModelSelector():
         elif prep_method == 'one_hot_encode':
             X = bucket_data(X, self.run_types[prep_method].get('bucket_list', None))
             enc = OneHotEncoder(
-                categories=self.run_types[prep_method].get('categories', 'auto')
+                categories=self.run_types[prep_method].get('categories', 'auto'),
+                handle_unknown='ignore'
             )  # 'auto' is default argument for OHE, else take category list.
             X = enc.fit_transform(X).toarray()
         elif prep_method == 'raw':

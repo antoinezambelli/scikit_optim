@@ -9,7 +9,7 @@
 from setuptools import setup, find_packages
 
 
-version = '4.1.0'
+version = '4.1.1'
 
 setup(
     name='scikit_optim',
@@ -38,6 +38,7 @@ setup(
     install_requires=[
         'numpy',
         'pandas',
-        'scikit-learn'
+        'scikit-learn',
+        'tqdm'
     ]
 )

@@ -23,6 +23,7 @@ from sklearn.neighbors import KNeighborsClassifier
 from sklearn.preprocessing import MinMaxScaler, OneHotEncoder
 from sklearn.svm import SVC
 from sklearn.tree import DecisionTreeClassifier
+from tqdm import tqdm
 
 
 if not sys.warnoptions:
@@ -115,7 +116,7 @@ class ModelSelector():
         params = {mod_tup: 0 for mod_tup in todo_list}  # stores params for each model.
 
         # loop over todo_list and score. Innefficient because re-prepping X.
-        for model, prep_method in todo_list:
+        for model, prep_method in tqdm(todo_list, desc='Training models', ncols=150):
             t_0 = time.time()
 
             mod = globals()[model](acc_metric=self.acc_metric, num_cv=self.num_cv)  # Instantiate model class.

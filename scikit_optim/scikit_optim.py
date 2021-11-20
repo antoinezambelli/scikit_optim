@@ -116,8 +116,8 @@ class ModelSelector():
         params = {mod_tup: 0 for mod_tup in todo_list}  # stores params for each model.
 
         # loop over todo_list and score. Innefficient because re-prepping X.
-        p_bar = tqdm(todo_list, desc='Training models', ncols=150)
-        for model, prep_method in p_bar:
+        pbar = tqdm(todo_list, desc='Training models', ncols=150)
+        for model, prep_method in pbar:
             pbar.set_description('{} / {}'.format(model, prep_method))
             t_0 = time.time()
 

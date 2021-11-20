@@ -38,6 +38,7 @@ setup(
     install_requires=[
         'numpy',
         'pandas',
-        'scikit-learn'
+        'scikit-learn',
+        'tqdm'
     ]
 )

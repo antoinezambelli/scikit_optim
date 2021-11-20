@@ -116,7 +116,9 @@ class ModelSelector():
         params = {mod_tup: 0 for mod_tup in todo_list}  # stores params for each model.
 
         # loop over todo_list and score. Innefficient because re-prepping X.
-        for model, prep_method in tqdm(todo_list, desc='Training models', ncols=150):
+        p_bar = tqdm(todo_list, desc='Training models', ncols=150)
+        for model, prep_method in p_bar:
+            pbar.set_description('{} / {}'.format(model, prep_method))
             t_0 = time.time()
 
             mod = globals()[model](acc_metric=self.acc_metric, num_cv=self.num_cv)  # Instantiate model class.
@@ -138,6 +140,8 @@ class ModelSelector():
             params[(model, prep_method)] = mod.best_params
             model_dict[(model, prep_method)] = mod
 
+        pbar.close()
+        
         # get df and sort based on perf. store bests.
         summ_df_cv = pd.DataFrame.from_dict(summary_dict_cv, orient='index')
         summ_df_cv = summ_df_cv.sort_values(by=[self.acc_metric], ascending=False)

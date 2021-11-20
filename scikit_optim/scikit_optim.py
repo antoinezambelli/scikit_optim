@@ -125,7 +125,7 @@ class ModelSelector():
 
             # Prep data and fit model.
             X = self.data_prep(prep_method, X_in)
-            if X_val_in:  # OoS score case.
+            if X_val_in is not None:  # OoS score case.
                 X_val = self.data_prep(prep_method, X_val_in)
                 mod_score  = round(mod.score(X, y_in, X_val, y_val_in) * 100,  2)
             else:  # In-sample score case.
